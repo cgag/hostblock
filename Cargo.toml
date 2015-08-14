@@ -1,0 +1,7 @@
+[package]
+name = "blocklist"
+version = "0.1.0"
+authors = ["Curtis Gagliardi <curtis@curtis.io>"]
+
+[dependencies]
+rustbox = "*"
