@@ -1,0 +1,6 @@
+add a special selection to hosts file delmited with something like
+	##### Hostblock
+	##### End Hostblock
+
+add ui with a checkbox or something for making a site as blocked/unblocked
+add way to add a domain to the list
