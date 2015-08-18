@@ -8,10 +8,9 @@ use std::io::Read;
 // TODO(cgag): perhaps the rustbox instance should
 // live in here, and then write/write_inverted, render, etc
 // could be methods on State. 
-#[derive(Clone,Copy)]
-struct State<'a> {
+struct State {
     selected: usize,
-    domains: &'a Vec<String>,
+    domains: Box<Vec<Domain>>,
 }
 
 enum Movement { 
@@ -21,21 +20,24 @@ enum Movement {
     Down,
 }
 
+#[derive(Clone, Copy, PartialEq)]
 enum DomainStatus { Blocked, Unblocked }
+
+#[derive(Clone)]
 struct Domain {
-    domain: String,
-    blocked: DomainStatus,
+    url: String,
+    status: DomainStatus,
 }
 
 fn main() {
     let rustbox = RustBox::init(Default::default()).unwrap();
-    let domains = read_hosts();
+    let domains = parse_hosts(read_hosts());
 
     let init_state = State { selected: 0
-                           , domains:  &domains
+                           , domains:  Box::new(domains)
                            };
 
-    w_inv(&rustbox,0,0,"Press q to quit");
+    w_inv(&rustbox, 0, 0, "Press q to quit");
 
     render(&rustbox, &init_state);
     rustbox.present();
@@ -45,7 +47,7 @@ fn main() {
         let (quit, new_state) = 
             handle_event(rustbox.poll_event(false).ok().expect("fuck"), state);
         if quit { break }
-        state = new_state;
+        state = *new_state;
         render(&rustbox, &state);
         rustbox.present();
     }
@@ -72,9 +74,24 @@ fn read_hosts() -> Vec<String> {
         .collect::<Vec<String>>()
 }
 
-fn handle_event(event: rustbox::Event, state: State) -> (bool, State) {
-    let mut should_quit = false;
+fn parse_hosts(lines: Vec<String>) -> Vec<Domain> {
+    // TODO(cgag): determine status by whether or not first char is #
+    // TODO(cgag): domain shouldn't be the whole line, only the stuff
+    // after the first space.
+    // TODO(cgag): can the close be avoided for domain?
+    // TODO(cgag): use graphemes, not chars, can't use the crate
+    // because i'm on a plane
+    lines.iter()
+        .map(|line| {
+            Domain { url: String::from(line.split_whitespace().nth(1).unwrap()), 
+                     status: DomainStatus::Unblocked }
+        })
+        .collect()
+}
 
+fn handle_event(event: rustbox::Event, state: State) -> (bool, Box<State>) {
+    let mut should_quit = false;
+    let mut d: Vec<Domain>;
     // TODO(cgag): avoid all these default cases returning state somehow?
     let new_state = match event {
         rustbox::Event::KeyEvent(mkey) => {
@@ -84,7 +101,22 @@ fn handle_event(event: rustbox::Event, state: State) -> (bool, State) {
                     Key::Char('j') => { move_sel(state, Movement::Down)   },
                     Key::Char('k') => { move_sel(state, Movement::Up)     },
                     Key::Char('J') => { move_sel(state, Movement::Bottom) },
-                    Key::Char('K') => { move_sel(state, Movement::Top)    }
+                    Key::Char('K') => { move_sel(state, Movement::Top)    }, 
+                    // TODO(cgag): don't use b, not sure how to match space
+                    Key::Char('b') => { 
+                        // TODO(cgag): actual toggle
+                        d = state.domains.iter().cloned().collect::<Vec<Domain>>();
+                        d[state.selected] = Domain { 
+                            url: d[state.selected].url.clone(),
+                            status: match d[state.selected].status {
+                                DomainStatus::Blocked   => DomainStatus::Unblocked,
+                                DomainStatus::Unblocked => DomainStatus::Blocked,
+                            },
+                        }; 
+
+                        State { selected: state.selected,
+                                domains:  Box::new(d) }
+                    },
                     _  => { state }
                 },
                 _ => { state }
@@ -93,7 +125,7 @@ fn handle_event(event: rustbox::Event, state: State) -> (bool, State) {
         _ => { state } 
     };
 
-    (should_quit, new_state)
+    (should_quit, Box::new(new_state))
 }
 
 fn move_sel(state: State, movement: Movement) -> State {
@@ -134,13 +166,27 @@ fn w_inv(b: &RustBox, x: usize, y: usize, text: &str) {
 }
 
 fn render(b: &RustBox, state: &State) {
-    for (i, line) in state.domains.iter().enumerate() {
-        let mut s = String::from("[ ]");
-        s.extend(line.chars());
+    for (i, domain) in state.domains.iter().enumerate() {
+        let s = render_domain(domain);
         if i == state.selected {
             w_inv(b, 0, i, &s);
         } else {
             w(b, 0, i, &s);
         }
     }
+}
+
+// TODO(cgag): prefer &str?
+fn render_domain(domain: &Domain) -> String { 
+    let prefix = match domain.status {
+        DomainStatus::Blocked => "[x] ",
+        DomainStatus::Unblocked => "[ ] "
+    };
+
+    // TODO(cgag): better way to concat strings? 
+    // TODO(cgag): don't use chars, use graphemes(?) or something else 
+    // unicode aware
+    let mut s = String::from(prefix);
+    s.extend(domain.url.chars());
+    s
 }
