@@ -1,6 +1,8 @@
-add a special selection to hosts file delmited with something like
-	##### Hostblock
-	##### End Hostblock
-
-add ui with a checkbox or something for making a site as blocked/unblocked
-add way to add a domain to the list
+Need a way to remove domains.
+Ask for password on save.
+Display errors with rustbox.
+Show some sort of UI even if there are no domains.
+Nice boxes like with that go dashboard library?
+Enter obnoxious password in order to save
+	- only if something is unblocked?
+Save changes on demand, not just exit?
