@@ -59,12 +59,7 @@ fn main() {
                            , mode:     Mode::Normal
                            };
 
-    rustbox.w_inv(0, 0, "Press q to quit");
-
-    rustbox.clear();
-    rustbox.present();
-    render(&rustbox, &init_state);
-    rustbox.present();
+    rustbox.draw(&init_state);
 
     let mut state = init_state;
     loop {
@@ -73,11 +68,7 @@ fn main() {
                          &state);
         if quit { break }
         state = new_state;
-
-        rustbox.clear();
-        rustbox.present();
-        render(&rustbox, &state);
-        rustbox.present();
+        rustbox.draw(&state);
     }
     save_hosts(&state);
 }
@@ -96,6 +87,7 @@ fn handle_event(event: rustbox::Event, state: &State) -> (bool, State) {
                         Key::Char('J') => { move_sel(state, Movement::Bottom) },
                         Key::Char('K') => { move_sel(state, Movement::Top)    }, 
                         Key::Char('i') => { insert_mode(state)  },
+                        Key::Char('d') => { delete_selected(state)  },
                         Key::Char(' ') => { toggle_block(state) },
                         _  => { state.clone() }
                     },
@@ -183,6 +175,17 @@ fn add_url(state: &State, url: &str) -> State {
           }
 }
 
+fn delete_selected(state: &State) -> State {
+    let mut new_domains = state.domains.clone();
+    new_domains.remove(state.selected);
+
+    State { domains:  new_domains
+          , selected: state.selected
+          , adding:   state.adding.clone()
+          , mode:     state.mode.clone()
+          }
+}
+
 fn add_char(state: &State, c: char) -> State {
     let mut new_adding = state.adding.clone();
     new_adding.push(c);
@@ -208,6 +211,7 @@ fn backspace(state: &State) -> State {
           , mode: state.mode
           }
 }
+
 
 fn toggle_block(state: &State) -> State {
     let mut d = state.domains.iter().cloned().collect::<Vec<Domain>>();
@@ -298,8 +302,6 @@ fn save_hosts(state: &State) {
 
     new_hosts.push_str("### HostBlock\n");
     for domain in state.domains.iter() {
-        // TODO(cgag): include the # or not depending on if it's blocked.
-        // Reuse renderding code?
         let block_marker = match domain.status {
             DomainStatus::Blocked   => "",
             DomainStatus::Unblocked => "#"
@@ -324,25 +326,6 @@ fn save_hosts(state: &State) {
 ///////////////
 // Rendering //
 ///////////////
-fn render(b: &RustBox, state: &State) {
-    match state.mode {
-        Mode::Normal => { 
-            for (i, domain) in state.domains.iter().enumerate() {
-                let s = render_domain(domain);
-                if i == state.selected {
-                    b.w_inv(0, i, &s);
-                } else {
-                    b.w(0, i, &s);
-                }
-            }
-        },
-        Mode::Insert => { 
-            b.w(0,
-                0,
-                &(String::from("Add domain: ") + &state.adding))
-        },
-    }
-}
 
 // TODO(cgag): prefer &str?
 fn render_domain(domain: &Domain) -> String { 
@@ -360,6 +343,7 @@ fn render_domain(domain: &Domain) -> String {
 trait ScreenWriter {
     fn w(&self, x: usize, y: usize, text: &str);
     fn w_inv(&self, x: usize, y: usize, text: &str);
+    fn draw(&self, state: &State);
 }
 
 impl ScreenWriter for RustBox {
@@ -369,5 +353,36 @@ impl ScreenWriter for RustBox {
 
     fn w_inv(&self, x: usize, y: usize, text: &str) {
         self.print(x, y, rustbox::RB_BOLD, Color::Black, Color::White, text);
+    }
+
+    fn draw(&self, state: &State) {
+        self.clear();
+        self.present();
+
+        match state.mode {
+            Mode::Normal => { 
+                if state.domains.len() == 0 { 
+                    self.w(0, 0, "No domains, hit i to enter insert mode");
+                } else { 
+                    for (i, domain) in state.domains.iter().enumerate() {
+                        let s = render_domain(domain);
+                        if i == state.selected {
+                            self.w_inv(0, i, &s);
+                        } else {
+                            self.w(0, i, &s);
+                        }
+                    }
+                }
+            },
+            Mode::Insert => { 
+                self.w(0,
+                       0,
+                       &(String::from("Add domain: ") + &state.adding));
+                self.w(0,
+                       1,
+                       "Press enter to finish.");
+            },
+        }
+        self.present();
     }
 }

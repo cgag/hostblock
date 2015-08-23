@@ -1,8 +1,10 @@
-Need a way to remove domains.
-Ask for password on save.
 Display errors with rustbox.
-Show some sort of UI even if there are no domains.
+Ask for password on save.
 Nice boxes like with that go dashboard library?
 Enter obnoxious password in order to save
 	- only if something is unblocked?
 Save changes on demand, not just exit?
+
+Done:
+	- Show some sort of UI even if there are no domains.
+	- Need a way to remove domains.
