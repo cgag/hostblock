@@ -21,9 +21,9 @@ use std::path::Path;
 #[derive(Clone)]
 struct State {
     selected: usize,
-    domains: Box<Vec<Domain>>,
-    adding: String,
-    mode: Mode,
+    domains:  Vec<Domain>,
+    adding:   String,
+    mode:     Mode,
 }
 
 #[derive(Clone)]
@@ -54,7 +54,7 @@ fn main() {
     let domains = parse_hosts(read_hosts());
 
     let init_state = State { selected: 0
-                           , domains:  Box::new(domains)
+                           , domains:  domains
                            , adding:   String::from("")
                            , mode:     Mode::Normal
                            };
@@ -157,45 +157,41 @@ fn move_sel(state: &State, movement: Movement) -> State {
 }
 
 fn normal_mode(state: &State) -> State {
-    State { selected: state.selected,
-            domains:  state.domains.clone(),
-            adding:   state.adding.clone(),
-            mode:     Mode::Normal }
+    State { selected: state.selected
+          , domains:  state.domains.clone()
+          , adding:   state.adding.clone()
+          , mode:     Mode::Normal }
 }
 
 fn insert_mode(state: &State) -> State {
-    State { selected: state.selected,
-            domains:  state.domains.clone(),
-            adding:   state.adding.clone(),
-            mode: Mode::Insert }
+    State { selected: state.selected
+          , domains:  state.domains.clone()
+          , adding:   state.adding.clone()
+          , mode: Mode::Insert }
 }
 
 fn add_url(state: &State, url: &str) -> State {
-    let d = Domain {
-        url: String::from(url),
-        status: DomainStatus::Blocked,
-    };
+    let d = Domain { url: String::from(url)
+                   , status: DomainStatus::Blocked };
 
     let mut new_domains = state.domains.clone();
     new_domains.push(d);
-    State {
-        domains:  new_domains,
-        selected: state.selected,
-        adding:   String::from(""),
-        mode:     state.mode.clone()
-    }
+    State { domains:  new_domains
+          , selected: state.selected
+          , adding:   String::from("")
+          , mode:     state.mode.clone()
+          }
 }
 
 fn add_char(state: &State, c: char) -> State {
     let mut new_adding = state.adding.clone();
     new_adding.push(c);
 
-    State {
-        domains: state.domains.clone(),
-        selected: state.selected,
-        adding: new_adding,
-        mode: state.mode,
-    }
+    State { domains: state.domains.clone()
+          , selected: state.selected
+          , adding: new_adding
+          , mode: state.mode
+          }
 }
 
 fn backspace(state: &State) -> State {
@@ -206,12 +202,11 @@ fn backspace(state: &State) -> State {
         None => { new_adding = String::from("") },
     }
 
-    State {
-        domains: state.domains.clone(),
-        selected: state.selected,
-        adding: new_adding,
-        mode: state.mode,
-    }
+    State { domains: state.domains.clone()
+          , selected: state.selected
+          , adding: new_adding
+          , mode: state.mode
+          }
 }
 
 fn toggle_block(state: &State) -> State {
@@ -224,17 +219,16 @@ fn toggle_block(state: &State) -> State {
         },
     }; 
 
-    State { selected: state.selected,
-            domains:  Box::new(d),
-            adding: state.adding.clone(),
-            mode: Mode::Normal }
+    State { selected: state.selected
+          , domains:  d
+          , adding:   state.adding.clone()
+          , mode:     Mode::Normal }
 }
 
 /////////////////
 // Persistence //
 /////////////////
 fn read_hosts() -> String {
-
     let mut hosts_file = match File::open("/etc/hosts") {
         Ok(file) => { file }
         Err(_) => { 
@@ -271,7 +265,7 @@ fn parse_hosts(hosts_text: String) -> Vec<Domain> {
                 }
             }
         })
-        .collect()
+        .collect::<Vec<Domain>>()
 }
 
 fn save_hosts(state: &State) {
@@ -285,9 +279,6 @@ fn save_hosts(state: &State) {
     let mut hosts_text = String::new();
     File::open("/etc/hosts").unwrap().read_to_string(&mut hosts_text).unwrap();
 
-    // TODO(cgag): there must be a much betteway to write to 
-    // file than this weird as_bytes and deref map
-    
     // TODO(cgag): append the new hostblock list
     let before_block = 
         hosts_text
