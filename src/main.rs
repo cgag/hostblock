@@ -59,7 +59,7 @@ fn main() {
                            , mode:     Mode::Normal
                            };
 
-    w_inv(&rustbox, 0, 0, "Press q to quit");
+    rustbox.w_inv(0, 0, "Press q to quit");
 
     rustbox.clear();
     rustbox.present();
@@ -244,7 +244,6 @@ fn read_hosts() -> String {
 }
 
 fn parse_hosts(hosts_text: String) -> Vec<Domain> {
-    
     let domain_lines = 
         hosts_text.lines()
             .take_while(|s| !s.starts_with("### End HostBlock"))
@@ -331,17 +330,16 @@ fn render(b: &RustBox, state: &State) {
             for (i, domain) in state.domains.iter().enumerate() {
                 let s = render_domain(domain);
                 if i == state.selected {
-                    w_inv(b, 0, i, &s);
+                    b.w_inv(0, i, &s);
                 } else {
-                    w(b, 0, i, &s);
+                    b.w(0, i, &s);
                 }
             }
         },
         Mode::Insert => { 
-            w(b,
-              0,
-              0,
-              &(String::from("Add domain: ") + &state.adding))
+            b.w(0,
+                0,
+                &(String::from("Add domain: ") + &state.adding))
         },
     }
 }
@@ -359,11 +357,17 @@ fn render_domain(domain: &Domain) -> String {
     s
 }
 
-// TODO(cgag): make these methods on rustbox?
-fn w(b: &RustBox, x: usize, y: usize, text: &str) {
-    b.print(x, y, rustbox::RB_BOLD, Color::White, Color::Black, text);
+trait ScreenWriter {
+    fn w(&self, x: usize, y: usize, text: &str);
+    fn w_inv(&self, x: usize, y: usize, text: &str);
 }
 
-fn w_inv(b: &RustBox, x: usize, y: usize, text: &str) {
-    b.print(x, y, rustbox::RB_BOLD, Color::Black, Color::White, text);
+impl ScreenWriter for RustBox {
+    fn w(&self, x: usize, y: usize, text: &str) {
+        self.print(x, y, rustbox::RB_BOLD, Color::White, Color::Black, text);
+    }
+
+    fn w_inv(&self, x: usize, y: usize, text: &str) {
+        self.print(x, y, rustbox::RB_BOLD, Color::Black, Color::White, text);
+    }
 }
