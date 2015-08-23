@@ -72,7 +72,7 @@ fn main() {
             handle_event(rustbox.poll_event(false).ok().expect("poll failed"), 
                          &state);
         if quit { break }
-        state = *new_state;
+        state = new_state;
 
         rustbox.clear();
         rustbox.present();
@@ -82,7 +82,7 @@ fn main() {
     save_hosts(&state);
 }
 
-fn handle_event(event: rustbox::Event, state: &State) -> (bool, Box<State>) {
+fn handle_event(event: rustbox::Event, state: &State) -> (bool, State) {
     let mut should_quit = false;
     // TODO(cgag): avoid all these default cases returning state somehow?
     let new_state = match event {
@@ -120,7 +120,7 @@ fn handle_event(event: rustbox::Event, state: &State) -> (bool, Box<State>) {
         _ => { state.clone() } 
     };
 
-    (should_quit, Box::new(new_state))
+    (should_quit, new_state)
 }
 
 ////////////////////////////
