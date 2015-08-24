@@ -2,12 +2,12 @@ extern crate rustbox;
 extern crate unicode_segmentation;
 
 use std::default::Default;
-use rustbox::{RustBox,Color,Key};
+use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
-use unicode_segmentation::UnicodeSegmentation;
-use std::fs;
 use std::path::Path;
+use rustbox::{RustBox,Color,Key};
+use unicode_segmentation::UnicodeSegmentation;
 
 // TODO(cgag): remove as many unwraps as possible
 //
@@ -70,7 +70,7 @@ fn main() {
         state = new_state;
         rustbox.draw(&state);
     }
-    save_hosts(&state);
+    save_hosts(&rustbox, &state);
 }
 
 fn handle_event(event: rustbox::Event, state: &State) -> (bool, State) {
@@ -263,15 +263,15 @@ fn parse_hosts(hosts_text: String) -> Vec<Domain> {
             Domain { 
                 url: url,
                 status: match UnicodeSegmentation::graphemes(ip, true).nth(0).unwrap() {
-                    "#" => DomainStatus::Blocked,
-                    _   => DomainStatus::Unblocked
+                    "#" => DomainStatus::Unblocked,
+                    _   => DomainStatus::Blocked
                 }
             }
         })
         .collect::<Vec<Domain>>()
 }
 
-fn save_hosts(state: &State) {
+fn save_hosts(b: &RustBox, state: &State) {
     fs::copy(Path::new("/etc/hosts"), Path::new("/etc/hosts.hb.back"))
         .ok()
         .expect("failed to backup hosts");
@@ -315,8 +315,19 @@ fn save_hosts(state: &State) {
 
     match File::create("/etc/hosts") {
         Ok(mut f) => match f.write_all(new_hosts.as_bytes()) {
-            Ok(_)  => { println!("wrote hosts!"); panic!(""); },
-            Err(e) => { println!("Couldn't write hosts! {}", e); panic!(".."); }
+            Ok(_)  => { println!("wrote hosts!"); 
+                        b.clear();
+                        b.present();
+                        b.w(0,0,"wrote hosts!");
+                        b.present();
+                      },
+            Err(e) => { println!("Couldn't write hosts! {}", e); 
+                        b.clear();
+                        b.present();
+                        b.w(0,0,"Couldn't write hosts!"); //TODO include error
+                        b.present();
+                        // panic!(".."); 
+                        }
         },
         Err(e) => { println!("couldn't open hosts! {} ", e); panic!(""); }
     }
