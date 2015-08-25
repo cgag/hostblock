@@ -1,5 +1,5 @@
 [root]
-name = "blocklist"
+name = "hostblock"
 version = "0.1.0"
 dependencies = [
  "rustbox 0.6.3 (registry+https://github.com/rust-lang/crates.io-index)",

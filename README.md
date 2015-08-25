@@ -9,3 +9,8 @@ j/k 	- down, up
 J/K 	- goto bottom, top
 d 		- delete selected
 space - toggle whether or not selected domain is blocked
+
+### Installation:
+	- clone repo
+	- `cargo build --release`
+	- 

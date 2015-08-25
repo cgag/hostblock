@@ -70,7 +70,7 @@ fn main() {
         state = new_state;
         rustbox.draw(&state);
     }
-    save_hosts(&rustbox, &state);
+    save_hosts(&state);
 }
 
 fn handle_event(event: rustbox::Event, state: &State) -> (bool, State) {
@@ -171,8 +171,7 @@ fn add_url(state: &State, url: &str) -> State {
     State { domains:  new_domains
           , selected: state.selected
           , adding:   String::from("")
-          , mode:     state.mode.clone()
-          }
+          , mode:     state.mode.clone() }
 }
 
 fn delete_selected(state: &State) -> State {
@@ -182,8 +181,7 @@ fn delete_selected(state: &State) -> State {
     State { domains:  new_domains
           , selected: state.selected
           , adding:   state.adding.clone()
-          , mode:     state.mode.clone()
-          }
+          , mode:     state.mode.clone() }
 }
 
 fn add_char(state: &State, c: char) -> State {
@@ -193,8 +191,7 @@ fn add_char(state: &State, c: char) -> State {
     State { domains: state.domains.clone()
           , selected: state.selected
           , adding: new_adding
-          , mode: state.mode
-          }
+          , mode: state.mode }
 }
 
 fn backspace(state: &State) -> State {
@@ -208,8 +205,7 @@ fn backspace(state: &State) -> State {
     State { domains: state.domains.clone()
           , selected: state.selected
           , adding: new_adding
-          , mode: state.mode
-          }
+          , mode: state.mode }
 }
 
 
@@ -271,7 +267,7 @@ fn parse_hosts(hosts_text: String) -> Vec<Domain> {
         .collect::<Vec<Domain>>()
 }
 
-fn save_hosts(b: &RustBox, state: &State) {
+fn save_hosts(state: &State) {
     fs::copy(Path::new("/etc/hosts"), Path::new("/etc/hosts.hb.back"))
         .ok()
         .expect("failed to backup hosts");
@@ -315,21 +311,10 @@ fn save_hosts(b: &RustBox, state: &State) {
 
     match File::create("/etc/hosts") {
         Ok(mut f) => match f.write_all(new_hosts.as_bytes()) {
-            Ok(_)  => { println!("wrote hosts!"); 
-                        b.clear();
-                        b.present();
-                        b.w(0,0,"wrote hosts!");
-                        b.present();
-                      },
-            Err(e) => { println!("Couldn't write hosts! {}", e); 
-                        b.clear();
-                        b.present();
-                        b.w(0,0,"Couldn't write hosts!"); //TODO include error
-                        b.present();
-                        // panic!(".."); 
-                        }
+            Ok(_)  => {},
+            Err(e) => { panic!("Couldn't create new hosts file: {}", e); }
         },
-        Err(e) => { println!("couldn't open hosts! {} ", e); panic!(""); }
+        Err(e) => { println!("couldn't open hosts! {} ", e); panic!(e); }
     }
 }
 
@@ -351,6 +336,8 @@ fn render_domain(domain: &Domain) -> String {
     s
 }
 
+// Can't just add methods to rustbox without introducing a trait or type 
+// alias.
 trait ScreenWriter {
     fn w(&self, x: usize, y: usize, text: &str);
     fn w_inv(&self, x: usize, y: usize, text: &str);
