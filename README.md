@@ -13,4 +13,4 @@ space - toggle whether or not selected domain is blocked
 ### Installation:
 	- clone repo
 	- `cargo build --release`
-	- 
+	- make sure ./target/release/hostblock is on your $PATH 
