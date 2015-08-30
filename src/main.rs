@@ -1,11 +1,18 @@
+// #![feature(plugin)]
+// #![plugin(clippy)]
+
+#![feature(slice_concat_ext)]
+
 extern crate rustbox;
 extern crate unicode_segmentation;
 
 use std::default::Default;
 use std::fs;
 use std::fs::File;
+use std::cmp::min;
 use std::io::{Read, Write};
 use std::path::Path;
+use std::slice::SliceConcatExt;
 use rustbox::{RustBox,Color,Key};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -42,12 +49,19 @@ enum Movement {
     Down,
 }
 
-#[derive(Clone, Copy)]
-enum Mode {
+#[derive(Clone, Copy)] enum Mode {
     Insert,
     Normal
 }
 
+// TODO(cgag): deglobalize these?
+static TOP_RIGHT: &'static str = "┐";
+static VERTICAL_LINE: &'static str = "│";
+static HORIZONTAL_LINE: &'static str = "─";
+static TOP_LEFT: &'static str = "┌";
+static BOTTOM_RIGHT: &'static str = "┘";
+static BOTTOM_LEFT: &'static str = "└";
+static BOX_WIDTH: usize = 40;
 
 fn main() {
     let rustbox = RustBox::init(Default::default()).unwrap();
@@ -80,6 +94,7 @@ fn handle_event(event: rustbox::Event, state: &State) -> (bool, State) {
         rustbox::Event::KeyEvent(mkey) => {
             match mkey {
                 Some(key) => match state.mode { 
+                    // TODO(cgag): should support arrow keys as well
                     Mode::Normal => match key {
                         Key::Char('q') => { should_quit = true; state.clone() },
                         Key::Char('j') => { move_sel(state, Movement::Down)   },
@@ -322,7 +337,6 @@ fn save_hosts(state: &State) {
 ///////////////
 // Rendering //
 ///////////////
-
 // TODO(cgag): prefer &str?
 fn render_domain(domain: &Domain) -> String { 
     let status_prefix = match domain.status {
@@ -334,6 +348,58 @@ fn render_domain(domain: &Domain) -> String {
     let mut s = String::from(status_prefix);
     s.extend(UnicodeSegmentation::graphemes(&*domain.url, true));
     s
+}
+
+fn truncate(s: &str, n: usize) -> String {
+    if s.len() <= n { return String::from(s) }
+
+    let tail = "...";
+    let mut truncated = String::new();
+    for grapheme in UnicodeSegmentation::graphemes(s, true).take(n - tail.len()) {
+        truncated.push_str(grapheme)
+    }
+    truncated.push_str(tail);
+    return truncated
+}
+
+fn last_n_chars(s: &str, n: usize) -> String {
+    if s.len() <= n { return String::from(s) }
+
+    let to_drop = s.len() - n;
+
+    let mut res = String::new();
+    for grapheme in UnicodeSegmentation::graphemes(s, true).skip(to_drop) {
+        res.push_str(grapheme);
+    }
+    res
+}
+
+fn make_label(s: &str) -> String {
+    let prefix_size = 5;
+
+    let prefix = str_repeat(String::from(HORIZONTAL_LINE), prefix_size);
+    let rest_of_line =
+        str_repeat(String::from(HORIZONTAL_LINE), 
+                   BOX_WIDTH - s.len() - prefix_size - 2);
+                                    
+    String::from(TOP_LEFT) + &prefix + s + &rest_of_line + TOP_RIGHT
+}
+
+fn str_repeat(s: String, n: usize) -> String {
+    vec![String::from(s)].iter()
+        .cloned()
+        .cycle()
+        .take(n)
+        .collect::<Vec<String>>()
+        .connect("")
+}
+
+fn make_bottom() -> String {
+    let mut line = String::new();
+    for _ in 0..(BOX_WIDTH - 2) {
+        line.push_str(HORIZONTAL_LINE)
+    }
+    String::from(BOTTOM_LEFT) + &line + BOTTOM_RIGHT
 }
 
 // Can't just add methods to rustbox without introducing a trait or type 
@@ -362,23 +428,35 @@ impl ScreenWriter for RustBox {
                 if state.domains.len() == 0 { 
                     self.w(0, 0, "No domains, hit i to enter insert mode");
                 } else { 
+                    self.w(0, 0, &make_label("Domains"));
                     for (i, domain) in state.domains.iter().enumerate() {
-                        let s = render_domain(domain);
+                        let y = i + 1;
+                        let s = truncate(&render_domain(domain), 33);
+                        self.w(0, y, VERTICAL_LINE);
                         if i == state.selected {
-                            self.w_inv(0, i, &s);
+                            self.w_inv(2, y, &s);
                         } else {
-                            self.w(0, i, &s);
+                            self.w(2, y, &s);
                         }
+                        self.w(BOX_WIDTH - 1, y, VERTICAL_LINE);
                     }
+                    self.w(0, state.domains.len() + 1, &make_bottom());
                 }
             },
             Mode::Insert => { 
-                self.w(0,
-                       0,
-                       &(String::from("Add domain: ") + &state.adding));
-                self.w(0,
-                       1,
-                       "Press enter to finish.");
+                self.w(0, 0, &make_label("Add domain"));
+
+                // TODO(cgag): method like w_bordered(...)
+                self.w(0, 1, VERTICAL_LINE);
+                self.w(2, 1, &last_n_chars(&state.adding, BOX_WIDTH - 5));
+                self.w(min(state.adding.len() + 2, BOX_WIDTH - 3), 1, "_");
+                self.w(BOX_WIDTH - 1, 1, VERTICAL_LINE);
+
+                self.w(0, 2, VERTICAL_LINE);
+                self.w(2, 2, "Press enter to finish.");
+                self.w(BOX_WIDTH - 1, 2, VERTICAL_LINE);
+
+                self.w(0, 3, &make_bottom());
             },
         }
         self.present();

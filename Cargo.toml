@@ -6,3 +6,4 @@ authors = ["Curtis Gagliardi <curtis@curtis.io>"]
 [dependencies]
 rustbox = "*"
 unicode-segmentation = "*"
+# clippy="*"
