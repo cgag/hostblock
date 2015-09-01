@@ -4,6 +4,7 @@
 #![feature(slice_concat_ext)]
 
 extern crate rustbox;
+extern crate rand;
 extern crate unicode_segmentation;
 
 use std::default::Default;
@@ -13,11 +14,12 @@ use std::cmp::min;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::slice::SliceConcatExt;
+use rand::{thread_rng, sample};
 use rustbox::{RustBox,Color,Key};
 use unicode_segmentation::UnicodeSegmentation;
 
 // TODO(cgag): remove as many unwraps as possible
-//
+
 // TODO(cgag): Use rustbox writes to display error messages instead of just
 // stderr.  Should probably do both.
 
@@ -31,9 +33,12 @@ struct State {
     domains:  Vec<Domain>,
     adding:   String,
     mode:     Mode,
+    status:   Status,
+    correct_pass:   String,
+    pass_input:     String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 struct Domain {
     url: String,
     status: DomainStatus,
@@ -41,6 +46,10 @@ struct Domain {
 
 #[derive(Clone, Copy, PartialEq)]
 enum DomainStatus { Blocked, Unblocked }
+
+#[derive(Clone)]
+enum Status { Modified, Unmodified }
+
 
 enum Movement { 
     Top,
@@ -51,9 +60,11 @@ enum Movement {
 
 #[derive(Clone, Copy)] enum Mode {
     Insert,
-    Normal
+    Normal,
+    Password,
 }
 
+// taken straight from termui
 // TODO(cgag): deglobalize these?
 static TOP_RIGHT: &'static str = "┐";
 static VERTICAL_LINE: &'static str = "│";
@@ -66,16 +77,21 @@ static BOX_WIDTH: usize = 40;
 fn main() {
     let rustbox = RustBox::init(Default::default()).unwrap();
     let domains = parse_hosts(read_hosts());
+    
+    let correct_pass = gen_pass();
 
     let init_state = State { selected: 0
-                           , domains:  domains
-                           , adding:   String::from("")
-                           , mode:     Mode::Normal
+                           , domains: domains
+                           , adding:     String::from("")
+                           , pass_input: String::from("")
+                           , correct_pass: correct_pass
+                           , status: Status::Unmodified
+                           , mode: Mode::Normal
                            };
 
     rustbox.draw(&init_state);
 
-    let mut state = init_state;
+    let mut state = init_state.clone();
     loop {
         let (quit, new_state) = 
             handle_event(rustbox.poll_event(false).ok().expect("poll failed"), 
@@ -84,47 +100,124 @@ fn main() {
         state = new_state;
         rustbox.draw(&state);
     }
+     
     save_hosts(&state);
 }
 
+fn gen_pass() -> String {
+    let choices = vec![ String::from("correct")
+                      , String::from("horse")
+                      , String::from("battery")
+                      , String::from("staple") ]; 
+    let num_words = choices.len();
+
+    let mut rng = thread_rng();
+    let indices: Vec<usize> = 
+        sample(&mut rng, 0..1000, num_words)
+            .iter()
+            .map(|&i| i % num_words)
+            .collect();
+
+    let mut pass = String::new();
+    // TODO(cgag): how do i avoid deref on i?
+    for i in indices.iter() {
+        pass.push_str(choices.get(*i).unwrap());
+        pass.push_str(" ");
+    }
+    pass.pop(); // drop trailing space.
+
+    pass
+}
+
+// TODO(cgag): not very satisfied with threading init_state everywhere
 fn handle_event(event: rustbox::Event, state: &State) -> (bool, State) {
-    let mut should_quit = false;
     // TODO(cgag): avoid all these default cases returning state somehow?
-    let new_state = match event {
+    let (should_quit, new_state) = match event {
         rustbox::Event::KeyEvent(mkey) => {
             match mkey {
+                // TODO(cgag): ctrl-c should quit no matter what's going on
                 Some(key) => match state.mode { 
-                    // TODO(cgag): should support arrow keys as well
-                    Mode::Normal => match key {
-                        Key::Char('q') => { should_quit = true; state.clone() },
-                        Key::Char('j') => { move_sel(state, Movement::Down)   },
-                        Key::Char('k') => { move_sel(state, Movement::Up)     },
-                        Key::Char('J') => { move_sel(state, Movement::Bottom) },
-                        Key::Char('K') => { move_sel(state, Movement::Top)    }, 
-                        Key::Char('i') => { insert_mode(state)  },
-                        Key::Char('d') => { delete_selected(state)  },
-                        Key::Char(' ') => { toggle_block(state) },
-                        _  => { state.clone() }
-                    },
-                    Mode::Insert => match key {
-                        Key::Enter => { 
-                            let s = if state.adding.is_empty() {
-                                state.clone()
-                            } else {
-                                add_url(&state, &state.adding)
-                            };
-                            normal_mode(&s) 
-                        }
-                        Key::Esc => { normal_mode(state) }, 
-                        Key::Backspace => { backspace(state) },
-                        Key::Char(c)   => { add_char(state, c) },
-                        _ => { state.clone() }
-                    }
+                    Mode::Normal   => { handle_normal_input(key, state) },
+                    Mode::Insert   => { handle_insert_input(key, state) },
+                    Mode::Password => { handle_password_input(key, state) },
                 },
-                _ => { state.clone()} // TODO(cgag): how could this branch ever be hit?
+                // TODO(cgag): how could this branch ever be hit?
+                _ => { (false, state.clone()) } 
             }
         }
-        _ => { state.clone() } 
+        _ => { (false, state.clone()) } 
+    };
+
+    (should_quit, new_state)
+}
+
+fn handle_normal_input(key: Key, state: &State) -> (bool, State) {
+    let mut should_quit = false;
+
+    // TODO(cgag): should support arrow keys as well
+    let new_state = match key {
+        Key::Char('q') => { 
+            match state.status {
+                Status::Modified => {
+                    should_quit = false; 
+                    password_mode(&state)
+                },
+                Status::Unmodified => {
+                    should_quit = true; 
+                    state.clone() 
+                }
+            }
+        },
+        Key::Char('j') => { move_sel(state, Movement::Down)   },
+        Key::Char('k') => { move_sel(state, Movement::Up)     },
+        Key::Char('J') => { move_sel(state, Movement::Bottom) },
+        Key::Char('K') => { move_sel(state, Movement::Top)    }, 
+        Key::Char('i') => { insert_mode(state)  },
+        Key::Char('d') => { delete_selected(state)  },
+        Key::Char(' ') => { toggle_block(state) },
+        _  => { state.clone() }
+    };
+
+    (should_quit, new_state)
+}
+
+fn handle_insert_input(key: Key, state: &State) -> (bool, State) {
+    let new_state = match key {
+        Key::Enter => { 
+            let s = if state.adding.is_empty() {
+                state.clone()
+            } else {
+                add_url(&state, &state.adding)
+            };
+            normal_mode(&s) 
+        }
+        Key::Esc => { normal_mode(state) }, 
+        Key::Backspace => { backspace(state) },
+        Key::Char(c)   => { add_char(state, c) },
+        _ => { state.clone() }
+    };
+
+    (false, new_state)
+}
+
+fn handle_password_input(key: Key, state: &State) -> (bool, State) {
+    let mut should_quit = false;
+
+    let new_state = match key {
+        Key::Enter => { 
+            if state.pass_input == state.correct_pass {
+                should_quit = true;
+                state.clone()
+            } else {
+               let mut new_state = state.clone();
+               new_state.pass_input = String::from("");
+               new_state
+            }
+        }
+        Key::Esc => { normal_mode(state) }, 
+        Key::Backspace => { password_backspace(state)   },
+        Key::Char(c)   => { add_password_char(state, c) },
+        _ => { state.clone() }
     };
 
     (should_quit, new_state)
@@ -137,6 +230,9 @@ fn move_sel(state: &State, movement: Movement) -> State {
     let mut new_state = State { selected: 0, 
                                 adding:  state.adding.clone(),
                                 domains: state.domains.clone(),
+                                pass_input: state.pass_input.clone(),
+                                correct_pass: state.correct_pass.clone(),
+                                status: state.status.clone(),
                                 mode:    state.mode };
     match movement {
         Movement::Top => { new_state }
@@ -163,18 +259,35 @@ fn move_sel(state: &State, movement: Movement) -> State {
     }
 }
 
+// TODO(cgag): just clone the state and mutate the individual field.
 fn normal_mode(state: &State) -> State {
     State { selected: state.selected
+          , pass_input: state.pass_input.clone()
+          , correct_pass: state.correct_pass.clone()
           , domains:  state.domains.clone()
           , adding:   state.adding.clone()
+          , status:   state.status.clone()
           , mode:     Mode::Normal }
+}
+
+fn password_mode(state: &State) -> State {
+    State { selected: state.selected
+          , pass_input: state.pass_input.clone()
+          , correct_pass: state.correct_pass.clone()
+          , domains:  state.domains.clone()
+          , adding:   state.adding.clone()
+          , status:   state.status.clone()
+          , mode:     Mode::Password }
 }
 
 fn insert_mode(state: &State) -> State {
     State { selected: state.selected
+          , pass_input: state.pass_input.clone()
+          , correct_pass: state.correct_pass.clone()
           , domains:  state.domains.clone()
           , adding:   state.adding.clone()
-          , mode: Mode::Insert }
+          , status:   state.status.clone()
+          , mode:     Mode::Insert }
 }
 
 fn add_url(state: &State, url: &str) -> State {
@@ -185,7 +298,10 @@ fn add_url(state: &State, url: &str) -> State {
     new_domains.push(d);
     State { domains:  new_domains
           , selected: state.selected
+          , pass_input: state.pass_input.clone()
+          , correct_pass: state.correct_pass.clone()
           , adding:   String::from("")
+          , status:   Status::Modified
           , mode:     state.mode.clone() }
 }
 
@@ -195,7 +311,10 @@ fn delete_selected(state: &State) -> State {
 
     State { domains:  new_domains
           , selected: state.selected
+          , pass_input: state.pass_input.clone()
+          , correct_pass: state.correct_pass.clone()
           , adding:   state.adding.clone()
+          , status:   Status::Modified
           , mode:     state.mode.clone() }
 }
 
@@ -205,38 +324,82 @@ fn add_char(state: &State, c: char) -> State {
 
     State { domains: state.domains.clone()
           , selected: state.selected
-          , adding: new_adding
-          , mode: state.mode }
+          , pass_input: state.pass_input.clone()
+          , correct_pass: state.correct_pass.clone()
+          , mode: state.mode 
+          , status: state.status.clone()
+          , adding: new_adding }
+}
+
+// TODO(cgag): these redundant fns (this and backspace) are smelly
+fn add_password_char(state: &State, c: char) -> State {
+    let mut new_pass_input = state.pass_input.clone();
+    new_pass_input.push(c);
+
+    State { domains: state.domains.clone()
+          , selected: state.selected
+          , mode: state.mode 
+          , status: state.status.clone()
+          , adding: state.adding.clone()
+          , correct_pass: state.correct_pass.clone()
+          , pass_input: new_pass_input }
 }
 
 fn backspace(state: &State) -> State {
     let mut new_adding = state.adding.clone();
+    new_adding.pop();
 
-    match new_adding.pop() { 
+    State { domains: state.domains.clone()
+          , selected: state.selected
+          , pass_input: state.pass_input.clone()
+          , correct_pass: state.correct_pass.clone()
+          , status: state.status.clone()
+          , mode: state.mode 
+          , adding: new_adding
+          }
+}
+
+fn password_backspace(state: &State) -> State {
+    let mut new_pass_input = state.pass_input.clone();
+
+    // TODO(cgag): this this necessary?  Presumably pop just does nothing
+    // if it's empty.
+    match new_pass_input.pop() {
         Some(_) => {},
-        None => { new_adding = String::from("") },
+        None => { new_pass_input = String::from("") },
     }
 
     State { domains: state.domains.clone()
           , selected: state.selected
-          , adding: new_adding
-          , mode: state.mode }
+          , adding: state.adding.clone()
+          , mode: state.mode 
+          , status: state.status.clone()
+          , correct_pass: state.correct_pass.clone()
+          , pass_input: new_pass_input }
 }
 
 
 fn toggle_block(state: &State) -> State {
+    let mut dirty = false;
+
     let mut d = state.domains.iter().cloned().collect::<Vec<Domain>>();
     d[state.selected] = Domain { 
         url: d[state.selected].url.clone(),
         status: match d[state.selected].status {
-            DomainStatus::Blocked   => DomainStatus::Unblocked,
+            DomainStatus::Blocked   => {
+                dirty = true;
+                DomainStatus::Unblocked
+            },
             DomainStatus::Unblocked => DomainStatus::Blocked,
         },
     }; 
 
     State { selected: state.selected
           , domains:  d
+          , pass_input: state.pass_input.clone()
+          , correct_pass: state.correct_pass.clone()
           , adding:   state.adding.clone()
+          , status: if dirty { Status::Modified } else { Status::Unmodified }
           , mode:     Mode::Normal }
 }
 
@@ -293,7 +456,6 @@ fn save_hosts(state: &State) {
     let mut hosts_text = String::new();
     File::open("/etc/hosts").unwrap().read_to_string(&mut hosts_text).unwrap();
 
-    // TODO(cgag): append the new hostblock list
     let before_block = 
         hosts_text
             .lines()
@@ -375,7 +537,7 @@ fn last_n_chars(s: &str, n: usize) -> String {
 }
 
 fn make_label(s: &str) -> String {
-    let prefix_size = 5;
+    let prefix_size = 1;
 
     let prefix = str_repeat(String::from(HORIZONTAL_LINE), prefix_size);
     let rest_of_line =
@@ -407,9 +569,12 @@ fn make_bottom() -> String {
 trait ScreenWriter {
     fn w(&self, x: usize, y: usize, text: &str);
     fn w_inv(&self, x: usize, y: usize, text: &str);
+    fn w_boxed(&self, x: usize, y: usize, text: &str);
     fn draw(&self, state: &State);
 }
 
+// TODO(cgag): should render state like selecth, into a list of things
+// to write, e.g, [(Boxed, Inverted, "hello")]
 impl ScreenWriter for RustBox {
     fn w(&self, x: usize, y: usize, text: &str) {
         self.print(x, y, rustbox::RB_BOLD, Color::White, Color::Black, text);
@@ -417,6 +582,12 @@ impl ScreenWriter for RustBox {
 
     fn w_inv(&self, x: usize, y: usize, text: &str) {
         self.print(x, y, rustbox::RB_BOLD, Color::Black, Color::White, text);
+    }
+
+    fn w_boxed(&self, x: usize, y: usize, text: &str) {
+        self.w(x, y, VERTICAL_LINE);
+        self.w(x + 2, y, text);
+        self.w(x + BOX_WIDTH - 1, y, VERTICAL_LINE);
     }
 
     fn draw(&self, state: &State) {
@@ -452,12 +623,23 @@ impl ScreenWriter for RustBox {
                 self.w(min(state.adding.len() + 2, BOX_WIDTH - 3), 1, "_");
                 self.w(BOX_WIDTH - 1, 1, VERTICAL_LINE);
 
-                self.w(0, 2, VERTICAL_LINE);
-                self.w(2, 2, "Press enter to finish.");
-                self.w(BOX_WIDTH - 1, 2, VERTICAL_LINE);
+                self.w_boxed(0, 2, "Press enter to finish.");
 
                 self.w(0, 3, &make_bottom());
             },
+            Mode::Password => {
+                // TODO(cgag): like 95% duplicatoin from the Mode::Insert
+                // arm...
+                self.w(0, 0, &make_label("Type the passphrase below to save"));
+                self.w_boxed(0, 1, &state.correct_pass);
+
+                self.w(0, 2, VERTICAL_LINE);
+                self.w(2, 2, &last_n_chars(&state.pass_input, BOX_WIDTH - 5));
+                self.w(min(state.pass_input.len() + 2, BOX_WIDTH - 3), 2, "_");
+                self.w(BOX_WIDTH - 1, 2, VERTICAL_LINE);
+
+                self.w(0, 3, &make_bottom());
+            }
         }
         self.present();
     }
