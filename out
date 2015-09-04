@@ -1,19 +1,2 @@
-       Fresh bitflags v0.2.1
-       Fresh rustc-serialize v0.3.15
-       Fresh unicode-segmentation v0.1.1
-       Fresh libc v0.1.8
-       Fresh winapi-build v0.1.1
-       Fresh winapi v0.2.2
-       Fresh winapi v0.1.23
-       Fresh termbox-sys v0.2.7
-       Fresh advapi32-sys v0.1.2
-       Fresh kernel32-sys v0.1.4
-       Fresh rand v0.3.9
-       Fresh time v0.1.32
-       Fresh tempfile v1.1.0
-       Fresh num v0.1.26
-       Fresh gag v0.1.6
-       Fresh rustbox v0.6.3
-       Fresh hostblock v0.1.0 (file:///home/cgag/src/blocklist)
-     Running `target/debug/hostblock`
-indices: [1, 1, 0, 3]
+   Compiling hostblock v0.1.0 (file:///home/cgag/src/blocklist)
+     Running `target/release/hostblock`

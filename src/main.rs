@@ -7,26 +7,31 @@ extern crate rustbox;
 extern crate rand;
 extern crate unicode_segmentation;
 
+use std::cmp::min;
 use std::default::Default;
 use std::fs;
 use std::fs::File;
-use std::cmp::min;
+use std::io;
 use std::io::{Read, Write};
 use std::path::Path;
+use std::process::exit;
 use std::slice::SliceConcatExt;
+
 use rand::{thread_rng, sample};
-use rustbox::{RustBox,Color,Key};
 use unicode_segmentation::UnicodeSegmentation;
+
+use rustbox::{RustBox,Color,Key};
 
 // TODO(cgag): remove as many unwraps as possible
 
 // TODO(cgag): Use rustbox writes to display error messages instead of just
 // stderr.  Should probably do both.
+// Or maybe we should just exit rustbox before calling panic, should
+// clear the screen and make hte output readable?
 
 // TODO(cgag): perhaps the rustbox instance should
 // live in here, and then write/write_inverted, render, etc
 // could be methods on State. 
-// TODO(cgag): editing status: Saved/Modified
 #[derive(Clone)]
 struct State {
     selected: usize,
@@ -50,7 +55,6 @@ enum DomainStatus { Blocked, Unblocked }
 #[derive(Clone)]
 enum Status { Modified, Unmodified }
 
-
 enum Movement { 
     Top,
     Bottom,
@@ -62,6 +66,7 @@ enum Movement {
     Insert,
     Normal,
     Password,
+    Help
 }
 
 // taken straight from termui
@@ -75,8 +80,19 @@ static BOTTOM_LEFT: &'static str = "└";
 static BOX_WIDTH: usize = 40;
 
 fn main() {
-    let rustbox = RustBox::init(Default::default()).unwrap();
+    match fs::copy(Path::new("/etc/hosts"), Path::new("/etc/hosts.hb.back")) {
+        Ok(_) => (),
+        Err(_) => {
+            writeln!(
+                &mut std::io::stderr(), 
+                "Couldn't access /etc/hosts.  Try running with sudo."
+            ).unwrap();
+            exit(-1);
+        }
+    }
+
     let domains = parse_hosts(read_hosts());
+
     
     let correct_pass = gen_pass();
 
@@ -89,44 +105,27 @@ fn main() {
                            , mode: Mode::Normal
                            };
 
-    rustbox.draw(&init_state);
-
     let mut state = init_state.clone();
-    loop {
-        let (quit, new_state) = 
-            handle_event(rustbox.poll_event(false).ok().expect("poll failed"), 
-                         &state);
-        if quit { break }
-        state = new_state;
-        rustbox.draw(&state);
-    }
+    {
+        let rustbox = RustBox::init(Default::default()).unwrap();
+        rustbox.draw(&init_state);
+
+        loop {
+            let (quit, new_state) = 
+                handle_event(rustbox.poll_event(false).ok().expect("poll failed"), 
+                             &state);
+            if quit { break }
+            state = new_state;
+            rustbox.draw(&state);
+        }
+    } // force rustbox out of scope to clear window hopefully
      
-    save_hosts(&state);
-}
-
-fn gen_pass() -> String {
-    let choices = vec![ String::from("correct")
-                      , String::from("horse")
-                      , String::from("battery")
-                      , String::from("staple") ]; 
-    let num_words = choices.len();
-
-    let mut rng = thread_rng();
-    let indices: Vec<usize> = 
-        sample(&mut rng, 0..1000, num_words)
-            .iter()
-            .map(|&i| i % num_words)
-            .collect();
-
-    let mut pass = String::new();
-    // TODO(cgag): how do i avoid deref on i?
-    for i in indices.iter() {
-        pass.push_str(choices.get(*i).unwrap());
-        pass.push_str(" ");
-    }
-    pass.pop(); // drop trailing space.
-
-    pass
+    match save_hosts(&state) {
+        Ok(_) => {},
+        Err(e) => { 
+            panic!(e)
+        }
+    };
 }
 
 // TODO(cgag): not very satisfied with threading init_state everywhere
@@ -140,6 +139,7 @@ fn handle_event(event: rustbox::Event, state: &State) -> (bool, State) {
                     Mode::Normal   => { handle_normal_input(key, state) },
                     Mode::Insert   => { handle_insert_input(key, state) },
                     Mode::Password => { handle_password_input(key, state) },
+                    Mode::Help     => { handle_help_input(key, state) },
                 },
                 // TODO(cgag): how could this branch ever be hit?
                 _ => { (false, state.clone()) } 
@@ -154,31 +154,61 @@ fn handle_event(event: rustbox::Event, state: &State) -> (bool, State) {
 fn handle_normal_input(key: Key, state: &State) -> (bool, State) {
     let mut should_quit = false;
 
+    // TODO(cgag): need to unify the return types of all these things
+    // to avoid the nastiness seen in the 'q' branch.
     // TODO(cgag): should support arrow keys as well
     let new_state = match key {
         Key::Char('q') => { 
-            match state.status {
-                Status::Modified => {
-                    should_quit = false; 
-                    password_mode(&state)
-                },
-                Status::Unmodified => {
-                    should_quit = true; 
-                    state.clone() 
-                }
-            }
+            let (quit, new_state) = attempt_quit(state);
+            should_quit = quit;
+            new_state
         },
+        Key::Esc => { 
+            let (quit, new_state) = attempt_quit(state);
+            should_quit = quit;
+            new_state
+        }, 
+        Key::Char('i') => { insert_mode(state)  },
+        Key::Char('h') => { help_mode(state)  },
         Key::Char('j') => { move_sel(state, Movement::Down)   },
         Key::Char('k') => { move_sel(state, Movement::Up)     },
         Key::Char('J') => { move_sel(state, Movement::Bottom) },
         Key::Char('K') => { move_sel(state, Movement::Top)    }, 
-        Key::Char('i') => { insert_mode(state)  },
         Key::Char('d') => { delete_selected(state)  },
         Key::Char(' ') => { toggle_block(state) },
         _  => { state.clone() }
     };
 
     (should_quit, new_state)
+}
+
+fn attempt_quit(state: &State) -> (bool, State) {
+    let mut should_quit = false;
+
+    let new_state = match state.status {
+        Status::Modified => {
+            password_mode(&state)
+        },
+        Status::Unmodified => {
+            should_quit = true;
+            state.clone() 
+        }
+    };
+    
+    (should_quit, new_state)
+}
+
+fn handle_help_input(key: Key, state: &State) -> (bool, State) {
+    let new_state = match key {
+        Key::Esc       => { normal_mode(state) }
+        Key::Char('q') => { normal_mode(state) }
+        Key::Char('i') => { insert_mode(state)  },
+        Key::Char('h') => { help_mode(state)  },
+        Key::Char(' ') => { toggle_block(state) },
+        _  => { state.clone() }
+    };
+
+    (false, new_state)
 }
 
 fn handle_insert_input(key: Key, state: &State) -> (bool, State) {
@@ -288,6 +318,16 @@ fn insert_mode(state: &State) -> State {
           , adding:   state.adding.clone()
           , status:   state.status.clone()
           , mode:     Mode::Insert }
+}
+
+fn help_mode(state: &State) -> State {
+    State { selected: state.selected
+          , pass_input: state.pass_input.clone()
+          , correct_pass: state.correct_pass.clone()
+          , domains:  state.domains.clone()
+          , adding:   state.adding.clone()
+          , status:   state.status.clone()
+          , mode:     Mode::Help }
 }
 
 fn add_url(state: &State, url: &str) -> State {
@@ -445,10 +485,7 @@ fn parse_hosts(hosts_text: String) -> Vec<Domain> {
         .collect::<Vec<Domain>>()
 }
 
-fn save_hosts(state: &State) {
-    fs::copy(Path::new("/etc/hosts"), Path::new("/etc/hosts.hb.back"))
-        .ok()
-        .expect("failed to backup hosts");
+fn save_hosts(state: &State) -> Result<(), io::Error> {
 
     // read again to decrease likelyhood of race condition?
     // Probalby a waste of time, maybe just hold original hosts
@@ -486,13 +523,12 @@ fn save_hosts(state: &State) {
     };
     new_hosts.push_str("### End HostBlock\n");
 
-    match File::create("/etc/hosts") {
-        Ok(mut f) => match f.write_all(new_hosts.as_bytes()) {
-            Ok(_)  => {},
-            Err(e) => { panic!("Couldn't create new hosts file: {}", e); }
-        },
-        Err(e) => { println!("couldn't open hosts! {} ", e); panic!(e); }
+    let mut file = try!(File::create("/etc/hosts"));
+    match file.write_all(new_hosts.as_bytes()) {
+        Ok(_) => (),
+        Err(e) => return Err(e)
     }
+    Ok(())
 }
 
 
@@ -512,30 +548,6 @@ fn render_domain(domain: &Domain) -> String {
     s
 }
 
-fn truncate(s: &str, n: usize) -> String {
-    if s.len() <= n { return String::from(s) }
-
-    let tail = "...";
-    let mut truncated = String::new();
-    for grapheme in UnicodeSegmentation::graphemes(s, true).take(n - tail.len()) {
-        truncated.push_str(grapheme)
-    }
-    truncated.push_str(tail);
-    return truncated
-}
-
-fn last_n_chars(s: &str, n: usize) -> String {
-    if s.len() <= n { return String::from(s) }
-
-    let to_drop = s.len() - n;
-
-    let mut res = String::new();
-    for grapheme in UnicodeSegmentation::graphemes(s, true).skip(to_drop) {
-        res.push_str(grapheme);
-    }
-    res
-}
-
 fn make_label(s: &str) -> String {
     let prefix_size = 1;
 
@@ -545,15 +557,6 @@ fn make_label(s: &str) -> String {
                    BOX_WIDTH - s.len() - prefix_size - 2);
                                     
     String::from(TOP_LEFT) + &prefix + s + &rest_of_line + TOP_RIGHT
-}
-
-fn str_repeat(s: String, n: usize) -> String {
-    vec![String::from(s)].iter()
-        .cloned()
-        .cycle()
-        .take(n)
-        .collect::<Vec<String>>()
-        .connect("")
 }
 
 fn make_bottom() -> String {
@@ -639,8 +642,99 @@ impl ScreenWriter for RustBox {
                 self.w(BOX_WIDTH - 1, 2, VERTICAL_LINE);
 
                 self.w(0, 3, &make_bottom());
-            }
+            },
+            Mode::Help => {
+                let mut y = 0;
+                self.w(0, y, &make_label("Help"));
+                y += 1;
+
+                let movement = vec![ ("j", "down")
+                                   , ("k", "up")
+                                   , ("J", "GOTO bottom")
+                                   , ("K", "GOTO top")
+                                   ];
+
+                for &(movement, desc) in movement.iter() {
+                    self.w_boxed(0, y, &(String::from(movement) + " - " + desc));
+                    y += 1;
+                }
+
+                self.w_boxed(0, y, "");
+                y += 1;
+
+                let controls = vec![ ("i", "Add a domain to block.")
+                                   , ("d", "Remove highlighted domain.")
+                                   , ("<space>", "Toggle blocked/unblocked")
+                                   ];
+                for &(control, desc) in controls.iter(){
+                    self.w_boxed(0, y, &(String::from(control) + " - " + desc));
+                    y += 1;
+                }
+
+                self.w(0, controls.len() + movement.len() + 1, &make_bottom());
+            },
         }
         self.present();
     }
 }
+
+fn gen_pass() -> String {
+    let choices = vec![ String::from("correct")
+                      , String::from("horse")
+                      , String::from("battery")
+                      , String::from("staple") ]; 
+    let num_words = choices.len();
+
+    let mut rng = thread_rng();
+    let indices: Vec<usize> = 
+        sample(&mut rng, 0..1000, num_words)
+            .iter()
+            .map(|&i| i % num_words)
+            .collect();
+
+    let mut pass = String::new();
+    // TODO(cgag): how do i avoid deref on i?
+    for i in indices.iter() {
+        pass.push_str(choices.get(*i).unwrap());
+        pass.push_str(" ");
+    }
+    pass.pop(); // drop trailing space.
+
+    pass
+}
+
+fn str_repeat(s: String, n: usize) -> String {
+    vec![String::from(s)].iter()
+        .cloned()
+        .cycle()
+        .take(n)
+        .collect::<Vec<String>>()
+        .join("")
+}
+
+
+fn truncate(s: &str, n: usize) -> String {
+    let tail = "...";
+
+    if s.len() <= n { return String::from(s) }
+
+    let mut truncated = String::new();
+    for grapheme in UnicodeSegmentation::graphemes(s, true).take(n - tail.len()) {
+        truncated.push_str(grapheme)
+    }
+    truncated.push_str(tail);
+    return truncated
+}
+
+fn last_n_chars(s: &str, n: usize) -> String {
+    if s.len() <= n { return String::from(s) }
+
+    let to_drop = s.len() - n;
+
+    let mut res = String::new();
+    for grapheme in UnicodeSegmentation::graphemes(s, true).skip(to_drop) {
+        res.push_str(grapheme);
+    }
+    res
+}
+
