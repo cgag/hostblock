@@ -39,17 +39,17 @@ struct State {
     adding:   String,
     mode:     Mode,
     status:   Status,
-    correct_pass:   String,
-    pass_input:     String,
+    correct_pass: String,
+    pass_input:   String,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 struct Domain {
     url: String,
     status: DomainStatus,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone)]
 enum DomainStatus { Blocked, Unblocked }
 
 #[derive(Clone)]
@@ -62,7 +62,8 @@ enum Movement {
     Down,
 }
 
-#[derive(Clone, Copy)] enum Mode {
+#[derive(Clone)] 
+enum Mode {
     Insert,
     Normal,
     Password,
