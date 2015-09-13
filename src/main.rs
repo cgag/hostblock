@@ -304,6 +304,7 @@ fn add_url(state: &State, url: &str) -> State {
         Domain { url: String::from(url)
                , status: DomainStatus::Blocked }
     );
+    new_state.adding = String::new();
 
     new_state
 }
@@ -311,7 +312,7 @@ fn add_url(state: &State, url: &str) -> State {
 fn delete_selected(state: &State) -> State {
     let mut new_state = state.clone();
     new_state.domains.remove(state.selected);
-    new_state.selected -= 1;
+    new_state.selected = if state.selected > 0 { state.selected - 1 } else {0};
     new_state.status = Status::Dirty;
     new_state
 }
@@ -444,10 +445,7 @@ fn save_hosts(state: &State) -> Result<(), io::Error> {
     new_hosts.push_str("### End HostBlock\n");
 
     let mut file = try!(File::create("/etc/hosts"));
-    match file.write_all(new_hosts.as_bytes()) {
-        Ok(_) => (),
-        Err(e) => return Err(e)
-    }
+    try!(file.write_all(new_hosts.as_bytes()));
     Ok(())
 }
 
