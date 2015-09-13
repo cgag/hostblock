@@ -70,7 +70,6 @@ enum Movement {
 }
 
 // taken straight from termui
-// TODO(cgag): deglobalize these?
 static TOP_RIGHT: &'static str = "┐";
 static VERTICAL_LINE: &'static str = "│";
 static HORIZONTAL_LINE: &'static str = "─";
@@ -92,7 +91,6 @@ fn main() {
     }
 
     let domains = parse_hosts(read_hosts());
-
     
     let correct_pass = gen_pass();
 
