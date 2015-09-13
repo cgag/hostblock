@@ -251,26 +251,17 @@ fn handle_password_input(key: Key, state: &State) -> (bool, State) {
 //  State manipulation   ///
 ////////////////////////////
 fn move_sel(state: &State, movement: Movement) -> State {
-    let mut new_state = State { selected: 0, 
-                                adding:  state.adding.clone(),
-                                domains: state.domains.clone(),
-                                pass_input: state.pass_input.clone(),
-                                correct_pass: state.correct_pass.clone(),
-                                status: state.status.clone(),
-                                mode:    state.mode };
+    let mut new_state = state.clone();
+
     match movement {
-        Movement::Top => { new_state }
-        Movement::Bottom => { 
-            new_state.selected = state.domains.len();
-            new_state
-        }
+        Movement::Top    => { new_state.selected = 0; }
+        Movement::Bottom => { new_state.selected = state.domains.len(); }
         Movement::Up => {
             if state.selected == 0 {
                 new_state.selected = state.domains.len() - 1;
             } else {
                 new_state.selected =  state.selected - 1;
             }
-            new_state
         }
         Movement::Down => {
             if state.selected == state.domains.len() - 1 {
@@ -278,145 +269,83 @@ fn move_sel(state: &State, movement: Movement) -> State {
             } else {
                 new_state.selected = state.selected + 1;
             }
-            new_state
         }
     }
+    new_state
 }
 
+fn switch_mode(state: &State, mode: Mode) -> State {
+    let mut new_state = state.clone();
+    new_state.mode = mode;
+    new_state
+}
 // TODO(cgag): just clone the state and mutate the individual field.
 fn normal_mode(state: &State) -> State {
-    State { selected: state.selected
-          , pass_input: state.pass_input.clone()
-          , correct_pass: state.correct_pass.clone()
-          , domains:  state.domains.clone()
-          , adding:   state.adding.clone()
-          , status:   state.status.clone()
-          , mode:     Mode::Normal }
+    switch_mode(state, Mode::Normal)
 }
 
 fn password_mode(state: &State) -> State {
-    State { selected: state.selected
-          , pass_input: state.pass_input.clone()
-          , correct_pass: state.correct_pass.clone()
-          , domains:  state.domains.clone()
-          , adding:   state.adding.clone()
-          , status:   state.status.clone()
-          , mode:     Mode::Password }
+    switch_mode(state, Mode::Password)
 }
 
 fn insert_mode(state: &State) -> State {
-    State { selected: state.selected
-          , pass_input: state.pass_input.clone()
-          , correct_pass: state.correct_pass.clone()
-          , domains:  state.domains.clone()
-          , adding:   state.adding.clone()
-          , status:   state.status.clone()
-          , mode:     Mode::Insert }
+    switch_mode(state, Mode::Insert)
 }
 
 fn help_mode(state: &State) -> State {
-    State { selected: state.selected
-          , pass_input: state.pass_input.clone()
-          , correct_pass: state.correct_pass.clone()
-          , domains:  state.domains.clone()
-          , adding:   state.adding.clone()
-          , status:   state.status.clone()
-          , mode:     Mode::Help }
+    switch_mode(state, Mode::Help)
 }
 
 fn add_url(state: &State, url: &str) -> State {
-    let d = Domain { url: String::from(url)
-                   , status: DomainStatus::Blocked };
+    let mut new_state = state.clone();
 
-    let mut new_domains = state.domains.clone();
-    new_domains.push(d);
-    State { domains:  new_domains
-          , selected: state.selected
-          , pass_input: state.pass_input.clone()
-          , correct_pass: state.correct_pass.clone()
-          , adding:   String::from("")
-          , status:   state.status.clone()
-          , mode:     state.mode.clone() }
+    new_state.domains.push(
+        Domain { url: String::from(url)
+               , status: DomainStatus::Blocked }
+    );
+
+    new_state
 }
 
 fn delete_selected(state: &State) -> State {
-    let mut new_domains = state.domains.clone();
-    new_domains.remove(state.selected);
-
-    State { domains:  new_domains
-          , selected: state.selected
-          , pass_input: state.pass_input.clone()
-          , correct_pass: state.correct_pass.clone()
-          , adding:   state.adding.clone()
-          , status:   Status::Dirty
-          , mode:     state.mode.clone() }
+    let mut new_state = state.clone();
+    new_state.domains.remove(state.selected);
+    new_state.selected -= 1;
+    new_state.status = Status::Dirty;
+    new_state
 }
 
 fn add_char(state: &State, c: char) -> State {
-    let mut new_adding = state.adding.clone();
-    new_adding.push(c);
-
-    State { domains: state.domains.clone()
-          , selected: state.selected
-          , pass_input: state.pass_input.clone()
-          , correct_pass: state.correct_pass.clone()
-          , mode: state.mode 
-          , status: state.status.clone()
-          , adding: new_adding }
+    let mut new_state = state.clone();
+    new_state.adding.push(c);
+    new_state
 }
 
 // TODO(cgag): these redundant fns (this and backspace) are smelly
 fn add_password_char(state: &State, c: char) -> State {
-    let mut new_pass_input = state.pass_input.clone();
-    new_pass_input.push(c);
-
-    State { domains: state.domains.clone()
-          , selected: state.selected
-          , mode: state.mode 
-          , status: state.status.clone()
-          , adding: state.adding.clone()
-          , correct_pass: state.correct_pass.clone()
-          , pass_input: new_pass_input }
+    let mut new_state = state.clone();
+    new_state.pass_input.push(c);
+    new_state
 }
 
 fn backspace(state: &State) -> State {
-    let mut new_adding = state.adding.clone();
-    new_adding.pop();
-
-    State { domains: state.domains.clone()
-          , selected: state.selected
-          , pass_input: state.pass_input.clone()
-          , correct_pass: state.correct_pass.clone()
-          , status: state.status.clone()
-          , mode: state.mode 
-          , adding: new_adding
-          }
+    let mut new_state = state.clone();
+    new_state.adding.pop();
+    new_state
 }
 
 fn password_backspace(state: &State) -> State {
-    let mut new_pass_input = state.pass_input.clone();
-
-    // TODO(cgag): this this necessary?  Presumably pop just does nothing
-    // if it's empty.
-    match new_pass_input.pop() {
-        Some(_) => {},
-        None => { new_pass_input = String::from("") },
-    }
-
-    State { domains: state.domains.clone()
-          , selected: state.selected
-          , adding: state.adding.clone()
-          , mode: state.mode 
-          , status: state.status.clone()
-          , correct_pass: state.correct_pass.clone()
-          , pass_input: new_pass_input }
+    let mut new_state = state.clone();
+    new_state.pass_input.pop();
+    new_state
 }
 
 
 fn toggle_block(state: &State) -> State {
+    let mut new_state = state.clone();
     let mut dirty = false;
 
-    let mut d = state.domains.iter().cloned().collect::<Vec<Domain>>();
+    let mut d = state.domains.clone();
     d[state.selected] = Domain { 
         url: d[state.selected].url.clone(),
         status: match d[state.selected].status {
@@ -428,13 +357,13 @@ fn toggle_block(state: &State) -> State {
         },
     }; 
 
-    State { selected: state.selected
-          , domains:  d
-          , pass_input: state.pass_input.clone()
-          , correct_pass: state.correct_pass.clone()
-          , adding:   state.adding.clone()
-          , status:   if dirty { Status::Dirty } else { Status::Clean }
-          , mode:     Mode::Normal }
+    new_state.domains = d;
+    if dirty {
+        new_state.status = Status::Dirty;
+    }
+    new_state.mode = Mode::Normal;
+
+    new_state
 }
 
 /////////////////
@@ -480,10 +409,6 @@ fn parse_hosts(hosts_text: String) -> Vec<Domain> {
 }
 
 fn save_hosts(state: &State) -> Result<(), io::Error> {
-
-    // read again to decrease likelyhood of race condition?
-    // Probalby a waste of time, maybe just hold original hosts
-    // file in memory?
     let mut hosts_text = String::new();
     File::open("/etc/hosts").unwrap().read_to_string(&mut hosts_text).unwrap();
 
@@ -529,17 +454,13 @@ fn save_hosts(state: &State) -> Result<(), io::Error> {
 ///////////////
 // Rendering //
 ///////////////
-// TODO(cgag): prefer &str?
 fn render_domain(domain: &Domain) -> String { 
     let status_prefix = match domain.status {
         DomainStatus::Blocked => "[x] ",
         DomainStatus::Unblocked => "[ ] "
     };
 
-    // TODO(cgag): better way to concat strings? 
-    let mut s = String::from(status_prefix);
-    s.extend(UnicodeSegmentation::graphemes(&*domain.url, true));
-    s
+    String::from(status_prefix) + &domain.url
 }
 
 fn make_label(s: &str) -> String {
