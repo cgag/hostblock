@@ -1,5 +1,5 @@
-// #![feature(plugin)]
-// #![plugin(clippy)]
+#![feature(plugin)]
+#![plugin(clippy)]
 
 #![feature(slice_concat_ext)]
 
@@ -110,20 +110,18 @@ fn main() {
         rustbox.draw(&init_state);
 
         loop {
-            match rustbox.poll_event(false).ok().expect("poll failed") {
-                rustbox::Event::KeyEvent(mkey) => {
-                    match mkey {
-                        Some(Key::Ctrl('c')) => { break },
-                        Some(k) => {
-                            let (quit, new_state) = handle_key(k, &state);
-                            if quit { break }
-                            state = new_state;
-                            rustbox.draw(&state);
-                        },
-                        _ => {}
-                    }
-                },
-                _ => {}
+            if let rustbox::Event::KeyEvent(mkey) 
+                = rustbox.poll_event(false).ok().expect("poll failed") {
+                match mkey {
+                    Some(Key::Ctrl('c')) => { break },
+                    Some(k) => {
+                        let (quit, new_state) = handle_key(k, &state);
+                        if quit { break }
+                        state = new_state;
+                        rustbox.draw(&state);
+                    },
+                    _ => {}
+                }
             }
         }
     } // force rustbox out of scope to clear window
@@ -351,7 +349,7 @@ fn toggle_block(state: &State) -> State {
     d[state.selected] = Domain { 
         url: d[state.selected].url.clone(),
         status: match d[state.selected].status {
-            DomainStatus::Blocked   => {
+            DomainStatus::Blocked => {
                 dirty = true;
                 DomainStatus::Unblocked
             },
@@ -392,7 +390,7 @@ fn parse_hosts(hosts_text: String) -> Vec<Domain> {
             .take_while(|s| !s.starts_with("### End HostBlock"))
             .skip_while(|s| !s.starts_with("### HostBlock"))
             .skip(1) // drop the ### HostBlock line
-            .map(|line| line.to_string())
+            .map(|line| line.to_owned())
             .collect::<Vec<String>>();
 
     domain_lines.iter()
@@ -432,7 +430,7 @@ fn save_hosts(state: &State) -> Result<(), io::Error> {
     };
 
     new_hosts.push_str("### HostBlock\n");
-    for domain in state.domains.iter() {
+    for domain in &state.domains {
         let block_marker = match domain.status {
             DomainStatus::Blocked   => "",
             DomainStatus::Unblocked => "#"
@@ -513,7 +511,7 @@ impl ScreenWriter for RustBox {
 
         match state.mode {
             Mode::Normal => { 
-                if state.domains.len() == 0 { 
+                if state.domains.is_empty() { 
                     self.w(0, 0, "No domains, hit i to enter insert mode");
                 } else { 
                     self.w(0, 0, &make_label("Domains"));
@@ -562,13 +560,13 @@ impl ScreenWriter for RustBox {
                 self.w(0, y, &make_label("Help"));
                 y += 1;
 
-                let movement = vec![ ("j", "down")
-                                   , ("k", "up")
-                                   , ("J", "GOTO bottom")
-                                   , ("K", "GOTO top")
-                                   ];
+                let movements = vec![ ("j", "down")
+                                    , ("k", "up")
+                                    , ("J", "GOTO bottom")
+                                    , ("K", "GOTO top")
+                                    ];
 
-                for &(movement, desc) in movement.iter() {
+                for &(movement, desc) in &movements {
                     self.w_boxed(0, y, &(String::from(movement) + " - " + desc));
                     y += 1;
                 }
@@ -581,12 +579,12 @@ impl ScreenWriter for RustBox {
                                    , ("<space>", "Toggle blocked/unblocked")
                                    , ("q", "quit / back one screen")
                                    ];
-                for &(control, desc) in controls.iter(){
+                for &(control, desc) in &controls {
                     self.w_boxed(0, y, &(String::from(control) + " - " + desc));
                     y += 1;
                 }
 
-                self.w(0, controls.len() + movement.len() + 1, &make_bottom());
+                self.w(0, controls.len() + movements.len() + 1, &make_bottom());
             },
         }
         self.present();
@@ -609,8 +607,8 @@ fn gen_pass() -> String {
 
     let mut pass = String::new();
     // TODO(cgag): how do i avoid deref on i?
-    for i in indices.iter() {
-        pass.push_str(choices.get(*i).unwrap());
+    for i in indices {
+        pass.push_str(choices.get(i).unwrap());
         pass.push_str(" ");
     }
     pass.pop(); // drop trailing space.
@@ -638,7 +636,7 @@ fn truncate(s: &str, n: usize) -> String {
         truncated.push_str(grapheme)
     }
     truncated.push_str(tail);
-    return truncated
+    truncated
 }
 
 fn last_n_chars(s: &str, n: usize) -> String {
