@@ -83,15 +83,15 @@ fn main() {
         Ok(_) => (),
         Err(_) => {
             writeln!(
-                &mut std::io::stderr(), 
+                &mut std::io::stderr(),
                 "Couldn't access /etc/hosts.  Try running with sudo."
             ).unwrap();
-            exit(-1);
+            exit(1);
         }
     }
 
     let domains = parse_hosts(read_hosts());
-    
+
     let correct_pass = gen_pass();
 
     let init_state = State { selected: 0
@@ -109,49 +109,40 @@ fn main() {
         rustbox.draw(&init_state);
 
         loop {
-            let (quit, new_state) = 
-                handle_event(rustbox.poll_event(false).ok().expect("poll failed"), 
-                             &state);
-            if quit { break }
-            state = new_state;
-            rustbox.draw(&state);
+            match rustbox.poll_event(false).ok().expect("poll failed") {
+                rustbox::Event::KeyEvent(mkey) => {
+                    match mkey {
+                        Some(Key::Ctrl('c')) => { break },
+                        Some(k) => {
+                            let (quit, new_state) = handle_key(k, &state);
+                            if quit { break }
+                            state = new_state;
+                            rustbox.draw(&state);
+                        },
+                        _ => {}
+                    }
+                },
+                _ => {}
+            }
         }
-    } // force rustbox out of scope to clear window hopefully
-     
+    } // force rustbox out of scope to clear window
+
     match save_hosts(&state) {
         Ok(_) => {},
-        Err(e) => { 
+        Err(e) => {
             panic!(e)
         }
     };
 }
 
-// TODO(cgag): not very satisfied with threading init_state everywhere
-fn handle_event(event: rustbox::Event, state: &State) -> (bool, State) {
+fn handle_key(key: rustbox::Key, state: &State) -> (bool, State) {
     // TODO(cgag): avoid all these default cases returning state somehow?
-    let (should_quit, new_state) = match event {
-        rustbox::Event::KeyEvent(mkey) => {
-            match mkey {
-                // TODO(cgag): ctrl-c should quit no matter what's going on
-                // TODO(cgag): exit cleanly by retearning some sort of
-                // ABORT action and handle it later.
-                Some(Key::Ctrl('c')) => {
-                    exit(0)
-                },
-                Some(key) => match state.mode { 
-                    Mode::Normal   => { handle_normal_input(key, state) },
-                    Mode::Insert   => { handle_insert_input(key, state) },
-                    Mode::Password => { handle_password_input(key, state) },
-                    Mode::Help     => { handle_help_input(key, state) },
-                },
-                // TODO(cgag): how could this branch ever be hit?
-                _ => { (false, state.clone()) } 
-            }
-        }
-        _ => { (false, state.clone()) } 
-    };
-
-    (should_quit, new_state)
+    match state.mode { 
+        Mode::Normal   => { handle_normal_input(key, state) },
+        Mode::Insert   => { handle_insert_input(key, state) },
+        Mode::Password => { handle_password_input(key, state) },
+        Mode::Help     => { handle_help_input(key, state) },
+    }
 }
 
 fn handle_normal_input(key: Key, state: &State) -> (bool, State) {
@@ -558,7 +549,7 @@ fn make_label(s: &str) -> String {
     let rest_of_line =
         str_repeat(String::from(HORIZONTAL_LINE), 
                    BOX_WIDTH - s.len() - prefix_size - 2);
-                                    
+
     String::from(TOP_LEFT) + &prefix + s + &rest_of_line + TOP_RIGHT
 }
 
@@ -690,7 +681,7 @@ fn gen_pass() -> String {
     let num_words = choices.len();
 
     let mut rng = thread_rng();
-    let indices: Vec<usize> = 
+    let indices: Vec<usize> =
         sample(&mut rng, 0..1000, num_words)
             .iter()
             .map(|&i| i % num_words)
