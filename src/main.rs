@@ -670,6 +670,7 @@ impl ScreenWriter for RustBox {
                 let controls = vec![ ("i", "Add a domain to block.")
                                    , ("d", "Remove highlighted domain.")
                                    , ("<space>", "Toggle blocked/unblocked")
+                                   , ("q", "quit / back one screen")
                                    ];
                 for &(control, desc) in controls.iter(){
                     self.w_boxed(0, y, &(String::from(control) + " - " + desc));
