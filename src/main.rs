@@ -53,7 +53,7 @@ struct Domain {
 enum DomainStatus { Blocked, Unblocked }
 
 #[derive(Clone)]
-enum Status { Modified, Unmodified }
+enum Status { Dirty, Clean }
 
 enum Movement { 
     Top,
@@ -101,7 +101,7 @@ fn main() {
                            , adding:     String::from("")
                            , pass_input: String::from("")
                            , correct_pass: correct_pass
-                           , status: Status::Unmodified
+                           , status: Status::Clean
                            , mode: Mode::Normal
                            };
 
@@ -135,6 +135,11 @@ fn handle_event(event: rustbox::Event, state: &State) -> (bool, State) {
         rustbox::Event::KeyEvent(mkey) => {
             match mkey {
                 // TODO(cgag): ctrl-c should quit no matter what's going on
+                // TODO(cgag): exit cleanly by retearning some sort of
+                // ABORT action and handle it later.
+                Some(Key::Ctrl('c')) => {
+                    exit(0)
+                },
                 Some(key) => match state.mode { 
                     Mode::Normal   => { handle_normal_input(key, state) },
                     Mode::Insert   => { handle_insert_input(key, state) },
@@ -186,10 +191,10 @@ fn attempt_quit(state: &State) -> (bool, State) {
     let mut should_quit = false;
 
     let new_state = match state.status {
-        Status::Modified => {
+        Status::Dirty => {
             password_mode(&state)
         },
-        Status::Unmodified => {
+        Status::Clean => {
             should_quit = true;
             state.clone() 
         }
@@ -341,7 +346,7 @@ fn add_url(state: &State, url: &str) -> State {
           , pass_input: state.pass_input.clone()
           , correct_pass: state.correct_pass.clone()
           , adding:   String::from("")
-          , status:   Status::Modified
+          , status:   state.status.clone()
           , mode:     state.mode.clone() }
 }
 
@@ -354,7 +359,7 @@ fn delete_selected(state: &State) -> State {
           , pass_input: state.pass_input.clone()
           , correct_pass: state.correct_pass.clone()
           , adding:   state.adding.clone()
-          , status:   Status::Modified
+          , status:   Status::Dirty
           , mode:     state.mode.clone() }
 }
 
@@ -439,7 +444,7 @@ fn toggle_block(state: &State) -> State {
           , pass_input: state.pass_input.clone()
           , correct_pass: state.correct_pass.clone()
           , adding:   state.adding.clone()
-          , status: if dirty { Status::Modified } else { Status::Unmodified }
+          , status:   if dirty { Status::Dirty } else { Status::Clean }
           , mode:     Mode::Normal }
 }
 
