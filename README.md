@@ -1,5 +1,7 @@
 Simple terminal interface for blocking websites via the /etc/hosts file.
 
+![Hostblock demo](http://curtis.io/img/hostblock.gif "Hostblock Demo")
+
 Must be run as sudo as it needs to write to the hosts file, plus a backup
 file at /etc/hosts.hb.back
 
