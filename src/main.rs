@@ -77,6 +77,7 @@ static HORIZONTAL_LINE: &'static str = "─";
 static TOP_LEFT: &'static str = "┌";
 static BOTTOM_RIGHT: &'static str = "┘";
 static BOTTOM_LEFT: &'static str = "└";
+
 static BOX_WIDTH: usize = 40;
 
 fn main() {
