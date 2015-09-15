@@ -158,8 +158,8 @@ fn handle_normal_input(key: Key, state: &State) -> (bool, State) {
         }, 
         Key::Char('i') => { insert_mode(state)  },
         Key::Char('h') => { help_mode(state)  },
-        Key::Char('j') => { move_sel(state, Movement::Down)   },
-        Key::Char('k') => { move_sel(state, Movement::Up)     },
+        Key::Char('j') | Key::Down => { move_sel(state, Movement::Down)   },
+        Key::Char('k') | Key::Up   => { move_sel(state, Movement::Up)     },
         Key::Char('J') => { move_sel(state, Movement::Bottom) },
         Key::Char('K') => { move_sel(state, Movement::Top)    }, 
         Key::Char('d') => { delete_selected(state)  },
@@ -188,8 +188,7 @@ fn attempt_quit(state: &State) -> (bool, State) {
 
 fn handle_help_input(key: Key, state: &State) -> (bool, State) {
     let new_state = match key {
-        Key::Esc       => { normal_mode(state) }
-        Key::Char('q') => { normal_mode(state) }
+        Key::Esc | Key::Char('q') => { normal_mode(state) }
         Key::Char('i') => { insert_mode(state)  },
         Key::Char('h') => { help_mode(state)  },
         Key::Char(' ') => { toggle_block(state) },
