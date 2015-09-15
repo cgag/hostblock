@@ -17,17 +17,12 @@ use std::path::Path;
 use std::process::exit;
 use std::slice::SliceConcatExt;
 
-use rand::{thread_rng, sample};
+use rand::{thread_rng, Rng};
 use unicode_segmentation::UnicodeSegmentation;
 
 use rustbox::{RustBox,Color,Key};
 
 // TODO(cgag): remove as many unwraps as possible
-
-// TODO(cgag): Use rustbox writes to display error messages instead of just
-// stderr.  Should probably do both.
-// Or maybe we should just exit rustbox before calling panic, should
-// clear the screen and make hte output readable?
 
 // TODO(cgag): perhaps the rustbox instance should
 // live in here, and then write/write_inverted, render, etc
@@ -136,7 +131,6 @@ fn main() {
 }
 
 fn handle_key(key: rustbox::Key, state: &State) -> (bool, State) {
-    // TODO(cgag): avoid all these default cases returning state somehow?
     match state.mode { 
         Mode::Normal   => { handle_normal_input(key, state) },
         Mode::Insert   => { handle_insert_input(key, state) },
@@ -604,31 +598,23 @@ impl ScreenWriter for RustBox {
 }
 
 fn gen_pass(num_words: usize) -> String {
-    let choices = vec![ "correct".to_owned()
-                      , "horse".to_owned()
-                      , "battery".to_owned()
-                      , "staple".to_owned()
-                      , "begin".to_owned()
-                      , "therefore".to_owned()
-                      , "pumpkin".to_owned()
-                      , "suburban".to_owned()
-                      ]; 
+    let mut choices = vec![ "correct".to_owned()
+                          , "horse".to_owned()
+                          , "battery".to_owned()
+                          , "staple".to_owned()
+                          , "begin".to_owned()
+                          , "therefore".to_owned()
+                          , "pumpkin".to_owned()
+                          , "suburban".to_owned()
+                          ]; 
 
     let mut rng = thread_rng();
-    let indices: Vec<usize> =
-        sample(&mut rng, 0..1000, num_words)
-            .iter()
-            .map(|&i| i % choices.len())
-            .collect();
+    rng.shuffle(&mut choices);
 
-    let mut pass = String::new();
-    for i in indices {
-        pass.push_str(choices.get(i).unwrap());
-        pass.push_str(" ");
-    }
-    pass.pop(); // drop trailing space.
-
-    pass
+    choices.into_iter()
+        .take(num_words)
+        .collect::<Vec<String>>()
+        .join(" ")
 }
 
 fn str_repeat(s: String, n: usize) -> String {
