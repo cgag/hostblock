@@ -3,11 +3,10 @@ Simple terminal interface for blocking websites via the /etc/hosts file.
 ![Hostblock demo](http://curtis.io/img/hostblock-cropped.gif "Hostblock Demo")
 
 When you unblock or a remove a domain you'll be asked to enter a mildly
-annoying passphrase to give you a chance to reconsider if you really
-want to read hacker news.
+annoying random passphrase to give you a chance to reconsider if you really
+want to read go read reddit.
 
-Must be run as sudo as it needs to write to the hosts file, plus a backup
-file at /etc/hosts.hb.back
+Must be run as sudo as it needs to write to /etc/hosts.
 
 Controls
   - i 		- add a new domain
@@ -16,6 +15,7 @@ Controls
   - d 		- delete selected
   - space - toggle whether or not selected domain is blocked
   - q     - Quit current mode, quits app if in normal mode.
+  - h     - View help.
 
 ### Installation:
 
