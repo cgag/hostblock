@@ -94,7 +94,7 @@ fn main() {
 
     let domains = parse_hosts(read_hosts());
 
-    let correct_pass = gen_pass();
+    let correct_pass = gen_pass(4);
 
     let init_state = State { selected: 0
                            , domains: domains
@@ -381,7 +381,10 @@ fn read_hosts() -> String {
     // TODO(cgag): just return file handle so it's not all read into memory?
     // We just iterate over the lines atm.
     let mut s = String::new();
-    hosts_file.read_to_string(&mut s).unwrap();
+    match hosts_file.read_to_string(&mut s) {
+        Ok(_)  => {},
+        Err(e) => { panic!("Couldn't read hosts file: {}", e) }
+    }
     s
 }
 
@@ -396,8 +399,15 @@ fn parse_hosts(hosts_text: String) -> Vec<Domain> {
 
     domain_lines.iter()
         .map(|line| {
-            let ip  = line.split_whitespace().nth(0).unwrap();
-            let url = String::from(line.split_whitespace().nth(1).unwrap());
+            let ip  = match line.split_whitespace().nth(0) {
+                Some(ip) => ip,
+                None => panic!("Failed to parse a valid IP from line: {}", line)
+            };
+            let url = match line.split_whitespace().nth(1) {
+                Some(url) => String::from(url),
+                None => panic!("Failed to parse a valid URL from line: {}", line)
+            };
+
             Domain { 
                 url: url,
                 status: match UnicodeSegmentation::graphemes(ip, true).nth(0).unwrap() {
@@ -410,8 +420,9 @@ fn parse_hosts(hosts_text: String) -> Vec<Domain> {
 }
 
 fn save_hosts(state: &State) -> Result<(), io::Error> {
+    let mut hosts_file = try!(File::open("/etc/hosts"));
     let mut hosts_text = String::new();
-    File::open("/etc/hosts").unwrap().read_to_string(&mut hosts_text).unwrap();
+    try!(hosts_file.read_to_string(&mut hosts_text));
 
     let before_block = 
         hosts_text
@@ -592,22 +603,25 @@ impl ScreenWriter for RustBox {
     }
 }
 
-fn gen_pass() -> String {
-    let choices = vec![ String::from("correct")
-                      , String::from("horse")
-                      , String::from("battery")
-                      , String::from("staple") ]; 
-    let num_words = choices.len();
+fn gen_pass(num_words: usize) -> String {
+    let choices = vec![ "correct".to_owned()
+                      , "horse".to_owned()
+                      , "battery".to_owned()
+                      , "staple".to_owned()
+                      , "begin".to_owned()
+                      , "therefore".to_owned()
+                      , "pumpkin".to_owned()
+                      , "suburban".to_owned()
+                      ]; 
 
     let mut rng = thread_rng();
     let indices: Vec<usize> =
         sample(&mut rng, 0..1000, num_words)
             .iter()
-            .map(|&i| i % num_words)
+            .map(|&i| i % choices.len())
             .collect();
 
     let mut pass = String::new();
-    // TODO(cgag): how do i avoid deref on i?
     for i in indices {
         pass.push_str(choices.get(i).unwrap());
         pass.push_str(" ");

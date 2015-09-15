@@ -2,6 +2,10 @@ Simple terminal interface for blocking websites via the /etc/hosts file.
 
 ![Hostblock demo](http://curtis.io/img/hostblock-cropped.gif "Hostblock Demo")
 
+When you unblock or a remove a domain you'll be asked to enter a mildly
+annoying passphrase to give you a chance to reconsider if you really
+want to read hacker news.
+
 Must be run as sudo as it needs to write to the hosts file, plus a backup
 file at /etc/hosts.hb.back
 
@@ -19,7 +23,9 @@ Controls
   You'll need to have rustc and cargo installed, you can download them here:
     [https://www.rust-lang.org/install.html](https://www.rust-lang.org/install.html).
     Note that cargo is bundled with rust.
+
 	- clone repo
 	- run `cargo build --release`
 	- sudo ./target/release/hostblock
+
   You should probably must move the binary to somewhere on your path.
