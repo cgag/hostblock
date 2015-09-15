@@ -246,24 +246,25 @@ fn handle_password_input(key: Key, state: &State) -> (bool, State) {
 fn move_sel(state: &State, movement: Movement) -> State {
     let mut new_state = state.clone();
 
-    match movement {
-        Movement::Top    => { new_state.selected = 0; }
-        Movement::Bottom => { new_state.selected = state.domains.len(); }
+    new_state.selected = match movement {
+        Movement::Top    => { 0 }
+        Movement::Bottom => { state.domains.len() - 1 } 
         Movement::Up => {
             if state.selected == 0 {
-                new_state.selected = state.domains.len() - 1;
+                state.domains.len() - 1
             } else {
-                new_state.selected =  state.selected - 1;
+                state.selected - 1
             }
         }
         Movement::Down => {
             if state.selected == state.domains.len() - 1 {
-                new_state.selected = 0;
+                0
             } else {
-                new_state.selected = state.selected + 1;
+                state.selected + 1
             }
         }
-    }
+    };
+
     new_state
 }
 
@@ -296,7 +297,7 @@ fn add_url(state: &State, url: &str) -> State {
         Domain { url: String::from(url)
                , status: DomainStatus::Blocked }
     );
-    new_state.adding = String::new();
+    new_state.adding = "".to_owned();
 
     new_state
 }
@@ -355,7 +356,6 @@ fn toggle_block(state: &State) -> State {
     if dirty {
         new_state.status = Status::Dirty;
     }
-    new_state.mode = Mode::Normal;
 
     new_state
 }
@@ -434,7 +434,7 @@ fn save_hosts(state: &State) -> Result<(), io::Error> {
         new_hosts.push_str("\n");
     };
 
-    new_hosts.push_str("### HostBlock\n");
+    new_hosts.push_str("\n### HostBlock\n");
     for domain in &state.domains {
         let block_marker = match domain.status {
             DomainStatus::Blocked   => "",
@@ -589,7 +589,7 @@ impl ScreenWriter for RustBox {
                     y += 1;
                 }
 
-                self.w(0, controls.len() + movements.len() + 1, &make_bottom());
+                self.w(0, controls.len() + 1 + movements.len() + 1, &make_bottom());
             },
         }
         self.present();
