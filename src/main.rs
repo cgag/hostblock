@@ -617,12 +617,7 @@ fn gen_pass(num_words: usize) -> String {
 }
 
 fn str_repeat(s: String, n: usize) -> String {
-    vec![String::from(s)].iter()
-        .cloned()
-        .cycle()
-        .take(n)
-        .collect::<Vec<String>>()
-        .join("")
+    std::iter::repeat(s).take(n).collect::<Vec<_>>().join("")
 }
 
 
