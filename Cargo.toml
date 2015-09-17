@@ -7,4 +7,12 @@ authors = ["Curtis Gagliardi <curtis@curtis.io>"]
 rustbox = "*"
 rand = "*"
 unicode-segmentation = "*"
-clippy="*"
+
+[dependencies.clippy]
+clippy = "*"
+optional = true
+
+[features]
+default = []
+
+lints = ["clippy"]

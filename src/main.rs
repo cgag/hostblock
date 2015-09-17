@@ -1,5 +1,5 @@
-#![feature(plugin)]
-#![plugin(clippy)]
+#![cfg_attr(feature = "lints", feature(plugin))]
+#![cfg_attr(feature = "lints", plugin(clippy))]
 
 extern crate rustbox;
 extern crate rand;
