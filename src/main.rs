@@ -632,12 +632,6 @@ fn truncate(s: &str, n: usize) -> String {
 fn last_n_chars(s: &str, n: usize) -> String {
     if s.len() <= n { return String::from(s) }
 
-    let to_drop = s.len() - n;
-
-    let mut res = String::new();
-    for grapheme in UnicodeSegmentation::graphemes(s, true).skip(to_drop) {
-        res.push_str(grapheme);
-    }
-    res
+    UnicodeSegmentation::graphemes(s, true).skip(s.len() - n).collect::<String>()
 }
 
