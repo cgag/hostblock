@@ -19,6 +19,13 @@ Controls
 
 ### Installation:
 
+#### Linux x86_64 binary
+  If you're on linux on an x86_64 processor you can download a binary release
+  here:  https://github.com/cgag/hostblock/releases.
+
+  The binary is fully statically linked against musl-libc, so it should work
+  on any distro.
+
 #### Building from source
   You'll need to have rustc and cargo installed, you can download them here:
     [https://www.rust-lang.org/install.html](https://www.rust-lang.org/install.html).
@@ -28,4 +35,4 @@ Controls
 	- run `cargo build --release`
 	- sudo ./target/release/hostblock
 
-  You should probably must move the binary to somewhere on your path.
+  You should probably move the binary to somewhere on your path.
