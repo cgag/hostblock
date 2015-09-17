@@ -502,7 +502,7 @@ fn save_hosts(state: &State) -> Result<(), io::Error> {
         new_hosts.push_str("\n");
     };
 
-    new_hosts.push_str("\n### HostBlock\n");
+    new_hosts.push_str("### HostBlock\n");
     for domain in &state.domains {
         let block_marker = match domain.status {
             DomainStatus::Blocked => "",
