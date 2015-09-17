@@ -112,9 +112,7 @@ fn main() {
                                                            .ok()
                                                            .expect("poll failed") {
                 match mkey {
-                    Some(Key::Ctrl('c')) => {
-                        break
-                    }
+                    Some(Key::Ctrl('c')) => break,
                     Some(k) => {
                         let (quit, new_state) = handle_key(k, &state);
                         if quit {
@@ -132,26 +130,16 @@ fn main() {
 
     match save_hosts(&state) {
         Ok(_) => {}
-        Err(e) => {
-            panic!(e)
-        }
+        Err(e) => panic!(e),
     };
 }
 
 fn handle_key(key: rustbox::Key, state: &State) -> (bool, State) {
     match state.mode {
-        Mode::Normal => {
-            handle_normal_input(key, state)
-        }
-        Mode::Insert => {
-            handle_insert_input(key, state)
-        }
-        Mode::Password => {
-            handle_password_input(key, state)
-        }
-        Mode::Help => {
-            handle_help_input(key, state)
-        }
+        Mode::Normal => handle_normal_input(key, state),
+        Mode::Insert => handle_insert_input(key, state),
+        Mode::Password => handle_password_input(key, state),
+        Mode::Help => handle_help_input(key, state),
     }
 }
 
@@ -171,33 +159,15 @@ fn handle_normal_input(key: Key, state: &State) -> (bool, State) {
             should_quit = quit;
             new_state
         }
-        Key::Char('i') => {
-            insert_mode(state)
-        }
-        Key::Char('h') => {
-            help_mode(state)
-        }
-        Key::Char('j') | Key::Down => {
-            move_sel(state, Movement::Down)
-        }
-        Key::Char('k') | Key::Up => {
-            move_sel(state, Movement::Up)
-        }
-        Key::Char('J') => {
-            move_sel(state, Movement::Bottom)
-        }
-        Key::Char('K') => {
-            move_sel(state, Movement::Top)
-        }
-        Key::Char('d') => {
-            delete_selected(state)
-        }
-        Key::Char(' ') => {
-            toggle_block(state)
-        }
-        _ => {
-            state.clone()
-        }
+        Key::Char('i') => insert_mode(state),
+        Key::Char('h') => help_mode(state),
+        Key::Char('j') | Key::Down => move_sel(state, Movement::Down),
+        Key::Char('k') | Key::Up => move_sel(state, Movement::Up),
+        Key::Char('J') => move_sel(state, Movement::Bottom),
+        Key::Char('K') => move_sel(state, Movement::Top),
+        Key::Char('d') => delete_selected(state),
+        Key::Char(' ') => toggle_block(state),
+        _ => state.clone(),
     };
 
     (should_quit, new_state)
@@ -207,9 +177,7 @@ fn attempt_quit(state: &State) -> (bool, State) {
     let mut should_quit = false;
 
     let new_state = match state.status {
-        Status::Dirty => {
-            password_mode(&state)
-        }
+        Status::Dirty => password_mode(&state),
         Status::Clean => {
             should_quit = true;
             state.clone()
@@ -221,21 +189,11 @@ fn attempt_quit(state: &State) -> (bool, State) {
 
 fn handle_help_input(key: Key, state: &State) -> (bool, State) {
     let new_state = match key {
-        Key::Esc | Key::Char('q') => {
-            normal_mode(state)
-        }
-        Key::Char('i') => {
-            insert_mode(state)
-        }
-        Key::Char('h') => {
-            help_mode(state)
-        }
-        Key::Char(' ') => {
-            toggle_block(state)
-        }
-        _ => {
-            state.clone()
-        }
+        Key::Esc | Key::Char('q') => normal_mode(state),
+        Key::Char('i') => insert_mode(state),
+        Key::Char('h') => help_mode(state),
+        Key::Char(' ') => toggle_block(state),
+        _ => state.clone(),
     };
 
     (false, new_state)
@@ -251,18 +209,10 @@ fn handle_insert_input(key: Key, state: &State) -> (bool, State) {
             };
             normal_mode(&s)
         }
-        Key::Esc => {
-            normal_mode(state)
-        }
-        Key::Backspace => {
-            backspace(state)
-        }
-        Key::Char(c) => {
-            add_char(state, c)
-        }
-        _ => {
-            state.clone()
-        }
+        Key::Esc => normal_mode(state),
+        Key::Backspace => backspace(state),
+        Key::Char(c) => add_char(state, c),
+        _ => state.clone(),
     };
 
     (false, new_state)
@@ -282,18 +232,10 @@ fn handle_password_input(key: Key, state: &State) -> (bool, State) {
                 new_state
             }
         }
-        Key::Esc => {
-            normal_mode(state)
-        }
-        Key::Backspace => {
-            password_backspace(state)
-        }
-        Key::Char(c) => {
-            add_password_char(state, c)
-        }
-        _ => {
-            state.clone()
-        }
+        Key::Esc => normal_mode(state),
+        Key::Backspace => password_backspace(state),
+        Key::Char(c) => add_password_char(state, c),
+        _ => state.clone(),
     };
 
     (should_quit, new_state)
@@ -306,12 +248,8 @@ fn move_sel(state: &State, movement: Movement) -> State {
     let mut new_state = state.clone();
 
     new_state.selected = match movement {
-        Movement::Top => {
-            0
-        }
-        Movement::Bottom => {
-            state.domains.len() - 1
-        }
+        Movement::Top => 0,
+        Movement::Bottom => state.domains.len() - 1,
         Movement::Up => {
             if state.selected == 0 {
                 state.domains.len() - 1
@@ -432,12 +370,8 @@ fn toggle_block(state: &State) -> State {
 /////////////////
 fn read_hosts() -> String {
     let mut hosts_file = match File::open("/etc/hosts") {
-        Ok(file) => {
-            file
-        }
-        Err(_) => {
-            panic!("Couldn't access hosts file, try running with sudo.")
-        }
+        Ok(file) => file,
+        Err(_) => panic!("Couldn't access hosts file, try running with sudo."),
     };
 
     // TODO(cgag): just return file handle so it's not all read into memory?
@@ -445,9 +379,7 @@ fn read_hosts() -> String {
     let mut s = String::new();
     match hosts_file.read_to_string(&mut s) {
         Ok(_) => {}
-        Err(e) => {
-            panic!("Couldn't read hosts file: {}", e)
-        }
+        Err(e) => panic!("Couldn't read hosts file: {}", e),
     }
     s
 }
