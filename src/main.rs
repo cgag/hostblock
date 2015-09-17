@@ -127,7 +127,8 @@ fn main() {
                 }
             }
         }
-    } // force rustbox out of scope to clear window
+    } // force rustbox out of scope to clear window, so that error messages
+      // can be seen when saving.
 
     match save_hosts(&state) {
         Ok(_) => {}
@@ -159,7 +160,6 @@ fn handle_normal_input(key: Key, state: &State) -> (bool, State) {
 
     // TODO(cgag): need to unify the return types of all these things
     // to avoid the nastiness seen in the 'q' branch.
-    // TODO(cgag): should support arrow keys as well
     let new_state = match key {
         Key::Char('q') => {
             let (quit, new_state) = attempt_quit(state);
