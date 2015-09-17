@@ -1,8 +1,6 @@
 #![feature(plugin)]
 #![plugin(clippy)]
 
-#![feature(slice_concat_ext)]
-
 extern crate rustbox;
 extern crate rand;
 extern crate unicode_segmentation;
@@ -15,7 +13,6 @@ use std::io;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::process::exit;
-use std::slice::SliceConcatExt;
 
 use rand::{thread_rng, Rng};
 use unicode_segmentation::UnicodeSegmentation;
