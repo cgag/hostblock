@@ -4,7 +4,7 @@ Simple terminal interface for blocking websites via the /etc/hosts file.
 
 When you unblock or a remove a domain you'll be asked to enter a mildly
 annoying random passphrase to give you a chance to reconsider if you really
-want to read go read reddit.
+want to go read reddit.
 
 Must be run as sudo as it needs to write to /etc/hosts.
 
