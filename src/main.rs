@@ -92,7 +92,7 @@ fn main() {
 
     let correct_pass = gen_pass(4);
 
-    let init_state = State {
+    let mut state = State {
         selected: 0,
         domains: domains,
         adding: String::from(""),
@@ -102,10 +102,9 @@ fn main() {
         mode: Mode::Normal,
     };
 
-    let mut state = init_state.clone();
     {
         let rustbox = RustBox::init(Default::default()).unwrap();
-        rustbox.draw(&init_state);
+        rustbox.draw(&state);
 
         loop {
             if let rustbox::Event::KeyEvent(mkey) = rustbox.poll_event(false)
@@ -385,35 +384,31 @@ fn read_hosts() -> String {
 }
 
 fn parse_hosts(hosts_text: String) -> Vec<Domain> {
-    let domain_lines = hosts_text.lines()
-                                 .take_while(|s| !s.starts_with("### End HostBlock"))
-                                 .skip_while(|s| !s.starts_with("### HostBlock"))
-                                 .skip(1)
-                                 .map(|line| line.to_owned())
-                                 .collect::<Vec<String>>();
+    hosts_text.lines()
+        .take_while(|s| !s.starts_with("### End HostBlock"))
+        .skip_while(|s| !s.starts_with("### HostBlock"))
+        .skip(1)
+        .map(|line| {
+            let ip = match line.split_whitespace().nth(0) {
+                Some(ip) => ip,
+                None => panic!("Failed to parse a valid IP from line: {}", line),
+            };
+            let url = match line.split_whitespace().nth(1) {
+                Some(url) => String::from(url),
+                None => panic!("Failed to parse a valid URL from line: {}", line),
+            };
 
-    domain_lines.iter()
-                .map(|line| {
-                    let ip = match line.split_whitespace().nth(0) {
-                        Some(ip) => ip,
-                        None => panic!("Failed to parse a valid IP from line: {}", line),
-                    };
-                    let url = match line.split_whitespace().nth(1) {
-                        Some(url) => String::from(url),
-                        None => panic!("Failed to parse a valid URL from line: {}", line),
-                    };
-
-                    Domain {
-                        url: url,
-                        status: match UnicodeSegmentation::graphemes(ip, true)
-                                          .nth(0)
-                                          .unwrap() {
-                            "#" => DomainStatus::Unblocked,
-                            _ => DomainStatus::Blocked,
-                        },
-                    }
-                })
-                .collect::<Vec<Domain>>()
+            Domain {
+                url: url,
+                status: match UnicodeSegmentation::graphemes(ip, true)
+                                  .nth(0)
+                                  .unwrap() {
+                    "#" => DomainStatus::Unblocked,
+                    _ => DomainStatus::Blocked,
+                },
+            }
+        })
+        .collect::<Vec<Domain>>()
 }
 
 fn save_hosts(state: &State) -> Result<(), io::Error> {
@@ -594,20 +589,21 @@ impl ScreenWriter for RustBox {
 }
 
 fn gen_pass(num_words: usize) -> String {
-    let mut choices = vec!["correct".to_owned(),
-                           "horse".to_owned(),
-                           "battery".to_owned(),
-                           "staple".to_owned(),
-                           "begin".to_owned(),
-                           "therefore".to_owned(),
-                           "pumpkin".to_owned(),
-                           "suburban".to_owned()];
+    let mut choices = vec!["correct",
+                           "horse",
+                           "battery",
+                           "staple",
+                           "begin",
+                           "therefore",
+                           "pumpkin",
+                           "suburban"];
 
     let mut rng = thread_rng();
     rng.shuffle(&mut choices);
 
     choices.into_iter()
            .take(num_words)
+           .map(|choice| choice.to_owned())
            .collect::<Vec<String>>()
            .join(" ")
 }
