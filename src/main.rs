@@ -4,6 +4,10 @@
 extern crate rustbox;
 extern crate rand;
 extern crate unicode_segmentation;
+extern crate getopts;
+
+use getopts::Options;
+use std::env;
 
 use std::cmp::min;
 use std::default::Default;
@@ -102,7 +106,7 @@ fn main() {
         mode: Mode::Normal,
     };
 
-    {
+    if read_args(&mut state){
         let rustbox = RustBox::init(Default::default()).unwrap();
         rustbox.draw(&state);
 
@@ -131,6 +135,38 @@ fn main() {
         Ok(_) => {}
         Err(e) => panic!(e),
     };
+}
+// true, the args allowed us to bypass the GUI
+// false, nevermind show the GUI
+fn read_args(state:&mut State) -> bool{
+    fn print_usage(program: &str, opts: Options) {
+        let brief = format!("Usage: {} FILE [options]", program);
+        print!("{}", opts.usage(&brief));
+    }
+
+    let args: Vec<String> = env::args().collect();
+    let program = args[0].clone();
+
+    let mut opts = Options::new();
+    opts.optflag("u", "unblock", "unblock all hosts (requires not on
+        autopilot validation)");
+    opts.optflag("b", "block", "block all hosts");
+    opts.optflag("h", "help", "print this help menu");
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => { m }
+        Err(f) => { panic!(f.to_string()) }
+    };
+    if matches.opt_present("h") {
+        print_usage(&program, opts);
+        return false;
+    }
+    if matches.opt_present("b") {
+        state.domains = block_all(state).domains;
+        print!("hosts blocked");
+        return false;
+    }
+
+    return true;
 }
 
 fn handle_key(key: rustbox::Key, state: &State) -> (bool, State) {
@@ -338,7 +374,14 @@ fn password_backspace(state: &State) -> State {
     new_state.pass_input.pop();
     new_state
 }
-
+fn block_all(state:&mut State) -> State{
+    let mut new_state = state.clone();
+    new_state.domains = new_state.domains.into_iter().map(|domain| Domain{
+        url:domain.url.clone(),
+        status:DomainStatus::Blocked
+    }).collect();
+    new_state
+}
 
 fn toggle_block(state: &State) -> State {
     let mut new_state = state.clone();
