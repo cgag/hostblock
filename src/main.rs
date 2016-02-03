@@ -156,6 +156,7 @@ fn read_args(state:&mut State) -> bool{
         Ok(m) => { m }
         Err(f) => { panic!(f.to_string()) }
     };
+    // TODO: patern matching??
     if matches.opt_present("h") {
         print_usage(&program, opts);
         return false;
@@ -164,6 +165,16 @@ fn read_args(state:&mut State) -> bool{
         state.domains = block_all(state).domains;
         print!("hosts blocked");
         return false;
+    }
+    if matches.opt_present("u"){
+        // TODO: not in such a stupid way (I thought the & was just a
+        // reference, aperantly overwriting it is impossible.)
+        let result = unblock_all(state);
+        state.domains = result.domains;
+        state.status = result.status;
+        state.mode = Mode::Password;
+        // fall into the menu to allow the annoying sentence typing
+        return true;
     }
 
     return true;
@@ -374,12 +385,21 @@ fn password_backspace(state: &State) -> State {
     new_state.pass_input.pop();
     new_state
 }
-fn block_all(state:&mut State) -> State{
+fn block_all(state:&State) -> State{
     let mut new_state = state.clone();
     new_state.domains = new_state.domains.into_iter().map(|domain| Domain{
         url:domain.url.clone(),
         status:DomainStatus::Blocked
     }).collect();
+    new_state
+}
+fn unblock_all(state:&State) -> State{
+    let mut new_state = state.clone();
+    new_state.domains = new_state.domains.into_iter().map(|domain| Domain{
+        url:domain.url.clone(),
+        status:DomainStatus::Unblocked
+    }).collect();
+    new_state.status = Status::Dirty;
     new_state
 }
 
