@@ -148,8 +148,7 @@ fn read_args(state:&mut State) -> bool{
     let program = args[0].clone();
 
     let mut opts = Options::new();
-    opts.optflag("u", "unblock", "unblock all hosts (requires not on
-        autopilot validation)");
+    opts.optflag("u", "unblock", "unblock all hosts (requires passphrase)");
     opts.optflag("b", "block", "block all hosts");
     opts.optflag("h", "help", "print this help menu");
     let matches = match opts.parse(&args[1..]) {
