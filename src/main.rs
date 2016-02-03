@@ -140,7 +140,7 @@ fn main() {
 // false, nevermind show the GUI
 fn read_args(state:&mut State) -> bool{
     fn print_usage(program: &str, opts: Options) {
-        let brief = format!("Usage: {} FILE [options]", program);
+        let brief = format!("Usage: {} [options]", program);
         print!("{}", opts.usage(&brief));
     }
 
