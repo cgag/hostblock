@@ -18,9 +18,9 @@ Controls
   - h     - View help.
 
 Command line options:
- - `b` block all
- - `u` unblock all (requires typing the passphrase)
- - `h` help message
+ - `-b` block all
+ - `-u` unblock all (requires typing the passphrase)
+ - `-h` help message
 
 ### Installation:
 
