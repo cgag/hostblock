@@ -20,7 +20,7 @@ Controls
 Command line options:
  - `-b` block all
  - `-u` unblock all (requires typing the passphrase)
- - `-h` help message
+ - `-h` help message (showing these options)
 
 ### Installation:
 
