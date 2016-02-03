@@ -17,6 +17,11 @@ Controls
   - q     - Quit current mode, quits app if in normal mode.
   - h     - View help.
 
+Command line options:
+ - `b` block all
+ - `u` unblock all (requires typing the passphrase)
+ - `h` help message
+
 ### Installation:
 
 #### Linux x86_64 binary
