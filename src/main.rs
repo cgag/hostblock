@@ -39,6 +39,7 @@ struct State {
     pass_input: String,
 }
 
+
 #[derive(Clone)]
 struct Domain {
     url: String,
@@ -80,7 +81,7 @@ static TOP_LEFT: &'static str = "┌";
 static BOTTOM_RIGHT: &'static str = "┘";
 static BOTTOM_LEFT: &'static str = "└";
 
-static BOX_WIDTH: usize = 40;
+static BOX_WIDTH: usize = 55;
 
 fn main() {
     match fs::copy(Path::new("/etc/hosts"), Path::new("/etc/hosts.hb.back")) {
@@ -92,21 +93,10 @@ fn main() {
         }
     }
 
-    let domains = parse_hosts(read_hosts());
+    let (show_menu, mut state) = read_args();
 
-    let correct_pass = gen_pass(4);
 
-    let mut state = State {
-        selected: 0,
-        domains: domains,
-        adding: String::from(""),
-        pass_input: String::from(""),
-        correct_pass: correct_pass,
-        status: Status::Clean,
-        mode: Mode::Normal,
-    };
-
-    if read_args(&mut state){
+    if show_menu{
         let rustbox = RustBox::init(Default::default()).unwrap();
         rustbox.draw(&state);
 
@@ -138,11 +128,21 @@ fn main() {
 }
 // true, the args allowed us to bypass the GUI
 // false, nevermind show the GUI
-fn read_args(state:&mut State) -> bool{
+fn read_args() -> (bool, State){
     fn print_usage(program: &str, opts: Options) {
         let brief = format!("Usage: {} [options]", program);
         print!("{}", opts.usage(&brief));
     }
+
+    let state = State {
+        selected: 0,
+        domains: parse_hosts(read_hosts()),
+        adding: String::from(""),
+        pass_input: String::from(""),
+        correct_pass: gen_pass(4),
+        status: Status::Clean,
+        mode: Mode::Normal,
+    };
 
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
@@ -152,31 +152,30 @@ fn read_args(state:&mut State) -> bool{
     opts.optflag("b", "block", "block all hosts");
     opts.optflag("h", "help", "print this help menu");
     let matches = match opts.parse(&args[1..]) {
-        Ok(m) => { m }
+        Ok(m) => {
+            m
+        }
         Err(f) => { panic!(f.to_string()) }
     };
     // TODO: patern matching??
-    if matches.opt_present("h") {
-        print_usage(&program, opts);
-        return false;
-    }
-    if matches.opt_present("b") {
-        state.domains = block_all(state).domains;
-        print!("hosts blocked");
-        return false;
-    }
-    if matches.opt_present("u"){
-        // TODO: not in such a stupid way (I thought the & was just a
-        // reference, aperantly overwriting it is impossible.)
-        let result = unblock_all(state);
-        state.domains = result.domains;
-        state.status = result.status;
-        state.mode = Mode::Password;
-        // fall into the menu to allow the annoying sentence typing
-        return true;
-    }
+    match matches.opt_str(){
+        "h" =>{
+            print_usage(&program, opts);
+            (false, state);
+        }
+        "b" =>{
+            print!("hosts blocked");
+            (false, block_all(state));
+        }
+        "u" =>{
+            // fall into the menu to allow the passphrase
+            (true, unblock_all(state));
+        }
+        _ => {
+            (true, state);
+        }
+    };
 
-    return true;
 }
 
 fn handle_key(key: rustbox::Key, state: &State) -> (bool, State) {
@@ -384,7 +383,8 @@ fn password_backspace(state: &State) -> State {
     new_state.pass_input.pop();
     new_state
 }
-fn block_all(state:&State) -> State{
+
+fn block_all(state:State) -> State{
     let mut new_state = state.clone();
     new_state.domains = new_state.domains.into_iter().map(|domain| Domain{
         url:domain.url.clone(),
@@ -392,13 +392,16 @@ fn block_all(state:&State) -> State{
     }).collect();
     new_state
 }
-fn unblock_all(state:&State) -> State{
+
+fn unblock_all(state:State) -> State{
     let mut new_state = state.clone();
     new_state.domains = new_state.domains.into_iter().map(|domain| Domain{
         url:domain.url.clone(),
         status:DomainStatus::Unblocked
     }).collect();
     new_state.status = Status::Dirty;
+    new_state.correct_pass = gen_pass(6);
+    new_state.mode = Mode::Password;
     new_state
 }
 
