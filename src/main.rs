@@ -158,24 +158,24 @@ fn read_args() -> (bool, State){
         Err(f) => { panic!(f.to_string()) }
     };
     // TODO: patern matching??
-    match matches.opt_str(){
-        "h" =>{
-            print_usage(&program, opts);
-            (false, state);
-        }
-        "b" =>{
-            print!("hosts blocked");
-            (false, block_all(state));
-        }
-        "u" =>{
+    if matches.opt_present("h") {
+        print_usage(&program, opts);
+        return (false, state);
+    }
+    if matches.opt_present("b") {
+        print!("hosts blocked");
+        return (false, block_all(state));
+    }
+    if matches.opt_present("u"){
+        if cfg!(feature = "commandline_unblock"){
             // fall into the menu to allow the passphrase
-            (true, unblock_all(state));
+            return (true, unblock_all(state));
         }
-        _ => {
-            (true, state);
-        }
-    };
+        print!("unblock via commandline disabled in this build");
+        return (false,state);
+    }
 
+    return (true, state);
 }
 
 fn handle_key(key: rustbox::Key, state: &State) -> (bool, State) {
