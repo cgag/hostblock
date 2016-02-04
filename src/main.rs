@@ -167,6 +167,7 @@ fn read_args() -> (bool, State){
         return (false, block_all(state));
     }
     if matches.opt_present("u"){
+        // doing it like this doesn't change the runtime behavior to much
         if cfg!(feature = "commandline_unblock"){
             // fall into the menu to allow the passphrase
             return (true, unblock_all(state));
