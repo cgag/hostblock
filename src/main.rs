@@ -4,6 +4,10 @@
 extern crate rustbox;
 extern crate rand;
 extern crate unicode_segmentation;
+extern crate getopts;
+
+use getopts::Options;
+use std::env;
 
 use std::cmp::min;
 use std::default::Default;
@@ -34,6 +38,7 @@ struct State {
     correct_pass: String,
     pass_input: String,
 }
+
 
 #[derive(Clone)]
 struct Domain {
@@ -76,7 +81,7 @@ static TOP_LEFT: &'static str = "┌";
 static BOTTOM_RIGHT: &'static str = "┘";
 static BOTTOM_LEFT: &'static str = "└";
 
-static BOX_WIDTH: usize = 40;
+static BOX_WIDTH: usize = 55;
 
 fn main() {
     match fs::copy(Path::new("/etc/hosts"), Path::new("/etc/hosts.hb.back")) {
@@ -88,21 +93,10 @@ fn main() {
         }
     }
 
-    let domains = parse_hosts(read_hosts());
+    let (show_menu, mut state) = read_args();
 
-    let correct_pass = gen_pass(4);
 
-    let mut state = State {
-        selected: 0,
-        domains: domains,
-        adding: String::from(""),
-        pass_input: String::from(""),
-        correct_pass: correct_pass,
-        status: Status::Clean,
-        mode: Mode::Normal,
-    };
-
-    {
+    if show_menu{
         let rustbox = RustBox::init(Default::default()).unwrap();
         rustbox.draw(&state);
 
@@ -131,6 +125,57 @@ fn main() {
         Ok(_) => {}
         Err(e) => panic!(e),
     };
+}
+// true, the args allowed us to bypass the GUI
+// false, nevermind show the GUI
+fn read_args() -> (bool, State){
+    fn print_usage(program: &str, opts: Options) {
+        let brief = format!("Usage: {} [options]", program);
+        print!("{}", opts.usage(&brief));
+    }
+
+    let state = State {
+        selected: 0,
+        domains: parse_hosts(read_hosts()),
+        adding: String::from(""),
+        pass_input: String::from(""),
+        correct_pass: gen_pass(4),
+        status: Status::Clean,
+        mode: Mode::Normal,
+    };
+
+    let args: Vec<String> = env::args().collect();
+    let program = args[0].clone();
+
+    let mut opts = Options::new();
+    opts.optflag("u", "unblock", "unblock all hosts (requires passphrase)");
+    opts.optflag("b", "block", "block all hosts");
+    opts.optflag("h", "help", "print this help menu");
+    let matches = match opts.parse(&args[1..]) {
+        Ok(m) => {
+            m
+        }
+        Err(f) => { panic!(f.to_string()) }
+    };
+    if matches.opt_present("h") {
+        print_usage(&program, opts);
+        return (false, state);
+    }
+    if matches.opt_present("b") {
+        print!("hosts blocked");
+        return (false, block_all(state));
+    }
+    if matches.opt_present("u"){
+        // doing it like this doesn't change the runtime behavior to much
+        if cfg!(feature = "commandline_unblock"){
+            // fall into the menu to allow the passphrase
+            return (true, unblock_all(state));
+        }
+        print!("unblock via commandline disabled in this build");
+        return (false,state);
+    }
+
+    return (true, state);
 }
 
 fn handle_key(key: rustbox::Key, state: &State) -> (bool, State) {
@@ -339,6 +384,26 @@ fn password_backspace(state: &State) -> State {
     new_state
 }
 
+fn block_all(state:State) -> State{
+    let mut new_state = state.clone();
+    new_state.domains = new_state.domains.into_iter().map(|domain| Domain{
+        url:domain.url.clone(),
+        status:DomainStatus::Blocked
+    }).collect();
+    new_state
+}
+
+fn unblock_all(state:State) -> State{
+    let mut new_state = state.clone();
+    new_state.domains = new_state.domains.into_iter().map(|domain| Domain{
+        url:domain.url.clone(),
+        status:DomainStatus::Unblocked
+    }).collect();
+    new_state.status = Status::Dirty;
+    new_state.correct_pass = gen_pass(6);
+    new_state.mode = Mode::Password;
+    new_state
+}
 
 fn toggle_block(state: &State) -> State {
     let mut new_state = state.clone();

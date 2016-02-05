@@ -11,3 +11,6 @@
 /target/
 
 core
+
+#vim
+*.swp
