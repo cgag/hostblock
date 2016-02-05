@@ -157,17 +157,6 @@ fn read_args() -> (bool, State){
         }
         Err(f) => { panic!(f.to_string()) }
     };
-    match args.clone().pop().as_ref().map(String::as_ref) {
-        Some("-h") => {
-            print!("HHHH")
-        }
-        Some(x) =>{
-            print!("{}",x)
-        }
-        _ => {
-            print!("Nothing")
-        }
-    }
     if matches.opt_present("h") {
         print_usage(&program, opts);
         return (false, state);
