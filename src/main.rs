@@ -157,7 +157,6 @@ fn read_args() -> (bool, State){
         }
         Err(f) => { panic!(f.to_string()) }
     };
-    // TODO: patern matching??
     if matches.opt_present("h") {
         print_usage(&program, opts);
         return (false, state);
