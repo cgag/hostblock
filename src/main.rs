@@ -18,7 +18,7 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::process::exit;
 
-use rand::{thread_rng, Rng};
+use rand::Rng;
 use unicode_segmentation::UnicodeSegmentation;
 
 use rustbox::{RustBox, Color, Key};
@@ -105,8 +105,8 @@ fn main() {
                                                            .ok()
                                                            .expect("poll failed") {
                 match mkey {
-                    Some(Key::Ctrl('c')) => break,
-                    Some(k) => {
+                    Key::Ctrl('c') => break,
+                    k => {
                         let (quit, new_state) = handle_key(k, &state);
                         if quit {
                             break
@@ -114,7 +114,7 @@ fn main() {
                         state = new_state;
                         rustbox.draw(&state);
                     }
-                    _ => {}
+                    //_ => {}
                 }
             }
         }
@@ -139,7 +139,7 @@ fn read_args() -> (bool, State){
         domains: parse_hosts(read_hosts()),
         adding: String::from(""),
         pass_input: String::from(""),
-        correct_pass: gen_pass(4),
+        correct_pass: gen_pass(2),
         status: Status::Clean,
         mode: Mode::Normal,
     };
@@ -607,7 +607,7 @@ impl ScreenWriter for RustBox {
                 self.w(0, 3, &make_bottom());
             }
             Mode::Password => {
-                // TODO(cgag): like 95% duplicatoin from the Mode::Insert
+                // TODO(cgag): like 95% duplication from the Mode::Insert
                 // arm...
                 self.w(0, 0, &make_label("Type the passphrase below to save"));
                 self.w_boxed(0, 1, &state.correct_pass);
@@ -654,16 +654,24 @@ impl ScreenWriter for RustBox {
 }
 
 fn gen_pass(num_words: usize) -> String {
-    let mut choices = vec!["correct",
-                           "horse",
-                           "battery",
-                           "staple",
-                           "begin",
-                           "therefore",
-                           "pumpkin",
-                           "suburban"];
+    let mut choices = vec!["dilate",
+                           "indict",
+                           "sacrilegious",
+                           "ingenious",
+                           "minuscule",
+                           "onomatopoeia",
+                           "accommodate",
+                           "conscientious",
+                           "Wednesday",
+                           "acquiesce",
+                           "bologna",
+                           "fuchsia",
+                           "nauseous",
+                           "orangutan",
+                           "paraphernalia",
+    ];
 
-    let mut rng = thread_rng();
+    let mut rng = rand::thread_rng();
     rng.shuffle(&mut choices);
 
     choices.into_iter()
