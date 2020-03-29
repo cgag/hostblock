@@ -7,12 +7,17 @@ authors = ["Curtis Gagliardi <curtis@curtis.io>"]
 rustbox = "*"
 rand = "*"
 unicode-segmentation = "*"
+getopts = "0.2"
 
 [dependencies.clippy]
 clippy = "*"
 optional = true
 
 [features]
-default = []
+default = ["commandline_unblock"]
+
+# enables the -u option
+# to disable remove from default
+commandline_unblock = []
 
 lints = ["clippy"]
