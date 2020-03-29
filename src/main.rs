@@ -477,9 +477,9 @@ fn parse_hosts(hosts_text: String) -> Vec<Domain> {
 }
 
 fn save_hosts(state: &State) -> Result<(), io::Error> {
-    let mut hosts_file = try!(File::open("/etc/hosts"));
+    let mut hosts_file = File::open("/etc/hosts")?;
     let mut hosts_text = String::new();
-    try!(hosts_file.read_to_string(&mut hosts_text));
+    hosts_file.read_to_string(&mut hosts_text)?;
 
     let before_block = hosts_text.lines()
                                  .take_while(|s| !s.starts_with("### HostBlock"));
@@ -507,8 +507,8 @@ fn save_hosts(state: &State) -> Result<(), io::Error> {
     };
     new_hosts.push_str("### End HostBlock\n");
 
-    let mut file = try!(File::create("/etc/hosts"));
-    try!(file.write_all(new_hosts.as_bytes()));
+    let mut file = File::create("/etc/hosts")?;
+    file.write_all(new_hosts.as_bytes())?;
     Ok(())
 }
 
