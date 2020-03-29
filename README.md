@@ -1,4 +1,4 @@
-Simple terminal interface for blocking websites via the /etc/hosts file.
+Simple terminal interface for blocking websites via the `/etc/hosts` file.
 
 ![Hostblock demo](http://curtis.io/img/hostblock-cropped.gif "Hostblock Demo")
 
@@ -41,3 +41,7 @@ Command line options:
 	- sudo ./target/release/hostblock
 
   You should probably move the binary to somewhere on your path.
+
+## General info
+
+* License: AGPL
